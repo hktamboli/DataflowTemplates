@@ -80,6 +80,7 @@ public class JobSpecMapper {
     if (!json.has("targets")) {
       return new Targets(null, null, null);
     }
+    // TODO: add missing support for index_all_properties
     return TargetMapper.fromJson(json.getJSONArray("targets"));
   }
 
