@@ -31,7 +31,6 @@ import com.google.cloud.teleport.v2.neo4j.model.connection.ConnectionParams;
 import com.google.cloud.teleport.v2.neo4j.model.enums.ActionExecuteAfter;
 import com.google.cloud.teleport.v2.neo4j.model.enums.ArtifactType;
 import com.google.cloud.teleport.v2.neo4j.model.enums.TargetType;
-import com.google.cloud.teleport.v2.neo4j.model.helpers.JobSpecMapper;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.OptionsParamsMapper;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.SourceQuerySpec;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.SourceQuerySpec.SourceQuerySpecBuilder;
@@ -122,7 +121,7 @@ public class GoogleCloudToNeo4j {
 
   private final OptionsParams optionsParams;
   private final ConnectionParams neo4jConnection;
-  private final JobSpec jobSpec;
+  private final JobSpec jobSpec = null;
   private final Pipeline pipeline;
   private final String templateVersion;
 
@@ -159,7 +158,7 @@ public class GoogleCloudToNeo4j {
     }
     this.neo4jConnection = Json.map(parsingResult, ConnectionParams.class);
 
-    this.jobSpec = JobSpecMapper.fromUri(pipelineOptions.getJobSpecUri());
+    //    this.jobSpec = JobSpecMapper.parse(pipelineOptions.getJobSpecUri());
 
     // Validate job spec
     processValidations(

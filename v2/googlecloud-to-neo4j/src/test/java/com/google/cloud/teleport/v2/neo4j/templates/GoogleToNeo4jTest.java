@@ -18,7 +18,6 @@ package com.google.cloud.teleport.v2.neo4j.templates;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.cloud.teleport.v2.neo4j.model.InputValidator;
-import com.google.cloud.teleport.v2.neo4j.model.helpers.JobSpecMapper;
 import com.google.cloud.teleport.v2.neo4j.model.job.JobSpec;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import com.google.cloud.teleport.v2.neo4j.model.job.Source;
@@ -42,7 +41,8 @@ public class GoogleToNeo4jTest {
 
   @BeforeClass
   public static void setUp() {
-    jobSpec = JobSpecMapper.fromUri("src/test/resources/testing-specs/text-northwind-jobspec.json");
+    jobSpec =
+        new JobSpec(); // JobSpecMapper.fromUri("src/test/resources/testing-specs/text-northwind-jobspec.json");
     providerImpl = ProviderFactory.of(jobSpec.getSourceList().get(0).getSourceType());
     optionsParams = new OptionsParams();
     optionsParams.overlayTokens("{\"limit\":7}");
