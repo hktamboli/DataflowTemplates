@@ -59,6 +59,7 @@ public class TargetMapper {
   private static final Pattern ORDER_PATTERN = Pattern.compile("\\basc|desc\\b");
 
   public static Targets fromJson(JSONArray json) {
+    // TODO: inject default name if (active) target name is empty (see InputRefactoring)
     List<NodeTarget> nodes = new ArrayList<>();
     List<RelationshipTarget> relationshipTargets = new ArrayList<>();
     List<CustomQueryTarget> queryTargets = new ArrayList<>();

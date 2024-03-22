@@ -15,26 +15,11 @@
  */
 package com.google.cloud.teleport.v2.neo4j.database;
 
-import static com.google.common.truth.Truth.assertThat;
-
-import com.google.cloud.teleport.v2.neo4j.model.enums.EdgeNodesSaveMode;
-import com.google.cloud.teleport.v2.neo4j.model.enums.FragmentType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.RoleType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.SaveMode;
-import com.google.cloud.teleport.v2.neo4j.model.enums.TargetType;
-import com.google.cloud.teleport.v2.neo4j.model.helpers.JobSpecMapper;
-import com.google.cloud.teleport.v2.neo4j.model.job.JobSpec;
-import com.google.cloud.teleport.v2.neo4j.model.job.Mapping;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
-import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
-import java.util.List;
-import java.util.Set;
-import org.junit.Test;
-
 // TODO: manually instantiate Target instances instead of deserializing JSON spec
-//public class CypherGeneratorTest {
+// public class CypherGeneratorTest {
 //
-//  private static final String SPEC_PATH = "src/test/resources/testing-specs/cypher-generator-test";
+//  private static final String SPEC_PATH =
+// "src/test/resources/testing-specs/cypher-generator-test";
 //
 //  @Test
 //  public void testFixIdentifierFirstCharAndSpaces() {
@@ -55,14 +40,16 @@ import org.junit.Test;
 //            "UNWIND $rows AS row  "
 //                + "MATCH (source:Source {id: row.source}) "
 //                + "MATCH (target:Target {id: row.target}) "
-//                + "MERGE (source)-[rel:LINKS {rel_id1: row.rel_id_1,rel_id2: row.rel_id_2}]->(target) "
+//                + "MERGE (source)-[rel:LINKS {rel_id1: row.rel_id_1,rel_id2:
+// row.rel_id_2}]->(target) "
 //                + "SET rel += {ts: row.timestamp}");
 //  }
 //
 //  @Test
 //  public void specifiesOnlyTypeInKeylessRelationshipMergePattern() {
 //    JobSpec jobSpec =
-//        JobSpecMapper.fromUri(SPEC_PATH + "/single-target-relation-import-without-keys-spec.json");
+//        JobSpecMapper.fromUri(SPEC_PATH +
+// "/single-target-relation-import-without-keys-spec.json");
 //    Target relationshipTarget = jobSpec.getTargets().iterator().next();
 //    String statement = CypherGenerator.getUnwindCreateCypher(relationshipTarget);
 //
@@ -217,8 +204,10 @@ import org.junit.Test;
 //    assertThat(schemaStatements)
 //        .isEqualTo(
 //            Set.of(
-//                "CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:SELF_LINKS_TO]-() REQUIRE r.targetRelProperty IS RELATIONSHIP KEY",
-//                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:PlaceholderLabel) REQUIRE n.targetNodeProperty IS NODE KEY"));
+//                "CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:SELF_LINKS_TO]-() REQUIRE
+// r.targetRelProperty IS RELATIONSHIP KEY",
+//                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:PlaceholderLabel) REQUIRE
+// n.targetNodeProperty IS NODE KEY"));
 //  }
 //
 //  @Test
@@ -261,6 +250,8 @@ import org.junit.Test;
 //
 //    assertThat(importStatement)
 //        .isEqualTo(
-//            "UNWIND $rows AS row  MATCH (source:StartNode {targetNodeProperty: row.source_node_field}) MATCH (target:EndNode {targetNodeProperty: row.source_node_field}) MERGE (source)-[rel:LINKS_TO {targetRelProperty: row.source_field}]->(target)");
+//            "UNWIND $rows AS row  MATCH (source:StartNode {targetNodeProperty:
+// row.source_node_field}) MATCH (target:EndNode {targetNodeProperty: row.source_node_field}) MERGE
+// (source)-[rel:LINKS_TO {targetRelProperty: row.source_field}]->(target)");
 //  }
-//}
+// }

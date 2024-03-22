@@ -53,6 +53,7 @@ public class JobSpecMapper {
     Targets targets = parseTargets(json);
     List<Action> actions = parseActions(json);
     // TODO: interpolate runtime tokens
+    // TODO: validate
     return new ImportSpecification("0.legacy", config, sources, targets, actions);
   }
 

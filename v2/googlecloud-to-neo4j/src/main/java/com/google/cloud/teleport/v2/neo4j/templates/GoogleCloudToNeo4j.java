@@ -23,7 +23,6 @@ import com.google.cloud.teleport.v2.neo4j.actions.ActionDoFnFactory;
 import com.google.cloud.teleport.v2.neo4j.actions.ActionPreloadFactory;
 import com.google.cloud.teleport.v2.neo4j.actions.preload.PreloadAction;
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
-import com.google.cloud.teleport.v2.neo4j.model.InputRefactoring;
 import com.google.cloud.teleport.v2.neo4j.model.InputValidator;
 import com.google.cloud.teleport.v2.neo4j.model.Json;
 import com.google.cloud.teleport.v2.neo4j.model.Json.ParsingResult;
@@ -158,22 +157,10 @@ public class GoogleCloudToNeo4j {
     }
     this.neo4jConnection = Json.map(parsingResult, ConnectionParams.class);
 
+    // TODO: migrate
     //    this.jobSpec = JobSpecMapper.parse(pipelineOptions.getJobSpecUri());
 
-    // Validate job spec
-    processValidations(
-        "Errors found validating job specification: ",
-        InputValidator.validateJobSpec(this.jobSpec));
-
     ///////////////////////////////////
-    // Refactor job spec
-    InputRefactoring inputRefactoring = new InputRefactoring(this.optionsParams);
-
-    // Variable substitution
-    inputRefactoring.refactorJobSpec(this.jobSpec);
-
-    // Optimizations
-    inputRefactoring.optimizeJobSpec(this.jobSpec);
 
     // Source specific validations
     for (Source source : jobSpec.getSourceList()) {
