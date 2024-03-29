@@ -15,21 +15,21 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
-import com.google.cloud.teleport.v2.neo4j.model.job.Source;
 import org.apache.beam.sdk.schemas.Schema;
+import org.neo4j.importer.v1.sources.Source;
 
 /** Convenience object for passing Source metadata and PCollection schema together. */
-public class SourceQuerySpec {
+public class SourceQuerySpec<T extends Source> {
 
-  private final Source source;
+  private final T source;
   private final Schema sourceSchema;
 
-  public SourceQuerySpec(Source source, Schema sourceSchema) {
+  public SourceQuerySpec(T source, Schema sourceSchema) {
     this.source = source;
     this.sourceSchema = sourceSchema;
   }
 
-  public Source getSource() {
+  public T getSource() {
     return source;
   }
 
@@ -37,23 +37,23 @@ public class SourceQuerySpec {
     return sourceSchema;
   }
 
-  public static class SourceQuerySpecBuilder {
+  public static class SourceQuerySpecBuilder<T extends Source> {
 
-    private Source source;
+    private T source;
     private Schema sourceSchema;
 
-    public SourceQuerySpecBuilder source(Source source) {
+    public SourceQuerySpecBuilder<T> source(T source) {
       this.source = source;
       return this;
     }
 
-    public SourceQuerySpecBuilder sourceSchema(Schema sourceSchema) {
+    public SourceQuerySpecBuilder<T> sourceSchema(Schema sourceSchema) {
       this.sourceSchema = sourceSchema;
       return this;
     }
 
-    public SourceQuerySpec build() {
-      return new SourceQuerySpec(source, sourceSchema);
+    public SourceQuerySpec<T> build() {
+      return new SourceQuerySpec<>(source, sourceSchema);
     }
   }
 }

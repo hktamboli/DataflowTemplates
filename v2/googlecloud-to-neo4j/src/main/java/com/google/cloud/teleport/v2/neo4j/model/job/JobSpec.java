@@ -29,7 +29,7 @@ public class JobSpec implements Serializable {
   // initialize defaults;
   private final Map<String, Source> sources = new LinkedHashMap<>();
   private List<Target> targets = new ArrayList<>();
-  private Config config = new Config();
+  private LegacyConfig config = new LegacyConfig();
   private final List<Action> actions = new ArrayList<>();
 
   public List<Target> getActiveTargetsBySourceAndType(String sourceName, TargetType type) {
@@ -86,11 +86,11 @@ public class JobSpec implements Serializable {
     this.targets = targets;
   }
 
-  public Config getConfig() {
+  public LegacyConfig getConfig() {
     return config;
   }
 
-  public void setConfig(Config config) {
+  public void setConfig(LegacyConfig config) {
     this.config = config;
   }
 

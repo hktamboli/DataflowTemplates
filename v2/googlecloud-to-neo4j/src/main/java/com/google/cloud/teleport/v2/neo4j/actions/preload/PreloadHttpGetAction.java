@@ -47,7 +47,7 @@ public class PreloadHttpGetAction implements PreloadAction {
     try {
       CloseableHttpResponse response =
           HttpUtils.getHttpResponse(
-              false, action.options.get("url"), action.options, action.headers);
+              false, action.options.get("url"), action.headers);
       LOG.info("Request returned: {}", HttpUtils.getResponseContent(response));
 
     } catch (Exception e) {

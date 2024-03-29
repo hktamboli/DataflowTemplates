@@ -41,27 +41,21 @@ public class HttpUtils {
   private static final Logger LOG = LoggerFactory.getLogger(HttpUtils.class);
 
   public static CloseableHttpResponse getHttpResponse(
-      boolean post, String uri, Map<String, String> options, Map<String, String> headers)
+          boolean post, String uri, Map<String, String> headers)
       throws IOException, URISyntaxException {
 
     try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
 
-      options.remove("url");
-      List<NameValuePair> paramPairs = getNvPairs(options);
       List<NameValuePair> headerPairs = getNvPairs(headers);
 
       if (post) {
         HttpPost httpPost = new HttpPost(uri);
-        if (!paramPairs.isEmpty()) {
-          httpPost.setEntity(new UrlEncodedFormEntity(paramPairs));
-        }
         for (NameValuePair t : headerPairs) {
           httpPost.addHeader(t.getName(), t.getValue());
         }
         return httpclient.execute(httpPost);
       } else {
         URIBuilder builder = new URIBuilder(uri);
-        builder.addParameters(paramPairs);
         HttpGet httpGet = new HttpGet(builder.build());
         for (NameValuePair t : headerPairs) {
           httpGet.addHeader(t.getName(), t.getValue());

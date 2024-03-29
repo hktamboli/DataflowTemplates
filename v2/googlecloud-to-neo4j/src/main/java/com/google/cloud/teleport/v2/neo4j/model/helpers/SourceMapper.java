@@ -24,7 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
-import org.apache.commons.csv.CSVFormat;
+
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -81,7 +81,7 @@ public class SourceMapper {
     }
 
     Object rawData = rawSource.get("data");
-    var csvFormat = toCsvFormat(format);
+    var csvFormat = CsvSources.toCsvFormat(format);
     List<List<Object>> data;
     if (rawData instanceof JSONArray) {
       var array = (JSONArray) rawData;
@@ -111,29 +111,4 @@ public class SourceMapper {
     return new BigQuerySource(sourceName, rawSource.getString("query"));
   }
 
-  private static CSVFormat toCsvFormat(TextFormat format) {
-    switch (format) {
-      case EXCEL:
-        return CSVFormat.EXCEL;
-      case INFORMIX:
-        return CSVFormat.INFORMIX_UNLOAD_CSV;
-      case MONGO:
-        return CSVFormat.MONGODB_CSV;
-      case MONGO_TSV:
-        return CSVFormat.MONGODB_TSV;
-      case MYSQL:
-        return CSVFormat.MYSQL;
-      case ORACLE:
-        return CSVFormat.ORACLE;
-      case POSTGRES:
-        return CSVFormat.POSTGRESQL_TEXT;
-      case POSTGRESQL_CSV:
-        return CSVFormat.POSTGRESQL_CSV;
-      case RFC4180:
-        return CSVFormat.RFC4180;
-      case DEFAULT:
-      default:
-        return CSVFormat.DEFAULT;
-    }
-  }
 }

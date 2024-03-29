@@ -15,350 +15,254 @@
  */
 package com.google.cloud.teleport.v2.neo4j.database;
 
-import static com.google.cloud.teleport.v2.neo4j.utils.ModelUtils.filterProperties;
+import org.neo4j.importer.v1.ImportSpecification;
+import org.neo4j.importer.v1.targets.EntityTarget;
+import org.neo4j.importer.v1.targets.NodeSchema;
+import org.neo4j.importer.v1.targets.NodeTarget;
+import org.neo4j.importer.v1.targets.PropertyMapping;
+import org.neo4j.importer.v1.targets.RelationshipSchema;
+import org.neo4j.importer.v1.targets.RelationshipTarget;
 
-import com.google.cloud.teleport.v2.neo4j.model.enums.EdgeNodesSaveMode;
-import com.google.cloud.teleport.v2.neo4j.model.enums.FragmentType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.RoleType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.SaveMode;
-import com.google.cloud.teleport.v2.neo4j.model.enums.TargetType;
-import com.google.cloud.teleport.v2.neo4j.model.job.Mapping;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
-import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import org.apache.commons.lang3.StringUtils;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Generates cypher based on model metadata.
- *
- * <p>TODO: Needs to be refactored to use DSL.
  */
+// TODO: Needs to be refactored to use DSL.
 public class CypherGenerator {
-  private static final String CONST_ROW_VARIABLE_NAME = "rows";
+    private static final String ROWS_VARIABLE_NAME = "rows";
+    private static final String ROW_VARIABLE_NAME = "row";
 
-  public static String getUnwindCreateCypher(Target target) {
-    TargetType targetType = target.getType();
-    if (targetType != TargetType.edge && targetType != TargetType.node) {
-      throw new RuntimeException("Unhandled target type: " + targetType);
-    }
-
-    SaveMode saveMode = target.getSaveMode();
-    if (saveMode != SaveMode.merge && saveMode != SaveMode.append) {
-      throw new RuntimeException("Unhandled save mode: " + saveMode);
-    }
-
-    if (targetType == TargetType.edge) {
-      return unwindRelationships(target);
-    }
-
-    if (saveMode == SaveMode.merge) {
-      return unwindMergeNodes(target);
-    }
-    return unwindCreateNodes(target);
-  }
-
-  private static String unwindCreateNodes(Target target) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("UNWIND $" + CONST_ROW_VARIABLE_NAME + " AS row ");
-    sb.append("CREATE (")
-        .append(
-            getLabelsPropertiesListCypherFragment(
-                "n", FragmentType.node, Arrays.asList(RoleType.key, RoleType.property), target))
-        .append(")");
-    return sb.toString();
-  }
-
-  private static String unwindMergeNodes(Target target) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("UNWIND $" + CONST_ROW_VARIABLE_NAME + " AS row ");
-    // MERGE clause represents matching properties
-    // MERGE (charlie {name: 'Charlie Sheen', age: 10})  A new node with the name 'Charlie
-    // Sheen' will be created since not all properties matched the existing 'Charlie Sheen'
-    // node.
-    sb.append("MERGE (")
-        .append(
-            getLabelsPropertiesListCypherFragment(
-                "n", FragmentType.node, List.of(RoleType.key), target))
-        .append(")");
-    String nodePropertyMapStr =
-        getPropertiesListCypherFragment(FragmentType.node, List.of(RoleType.property), target);
-    if (nodePropertyMapStr.length() > 0) {
-      sb.append(" SET n+=").append(nodePropertyMapStr);
-    }
-    return sb.toString();
-  }
-
-  private static String unwindRelationships(Target edge) {
-    String edgeClause;
-    String nodeClause;
-    if (edge.getSaveMode() == SaveMode.merge) {
-      edgeClause = "MERGE";
-      nodeClause = edge.getEdgeNodesMatchMode() == EdgeNodesSaveMode.merge ? "MERGE" : "MATCH";
-    } else {
-      edgeClause = "CREATE";
-      nodeClause = edge.getEdgeNodesMatchMode() == EdgeNodesSaveMode.merge ? "MERGE" : "CREATE";
-    }
-
-    StringBuilder query = new StringBuilder();
-    query.append("UNWIND $" + CONST_ROW_VARIABLE_NAME + " AS row ");
-    query
-        .append(String.format(" %s (", nodeClause))
-        .append(
-            getLabelsPropertiesListCypherFragment(
-                "source", FragmentType.source, List.of(RoleType.key), edge))
-        .append(")");
-    query
-        .append(String.format(" %s (", nodeClause))
-        .append(
-            getLabelsPropertiesListCypherFragment(
-                "target", FragmentType.target, List.of(RoleType.key), edge))
-        .append(")");
-    query.append(String.format(" %s (source)", edgeClause));
-    query.append("-[").append(getRelationshipTypePropertiesListFragment("rel", edge)).append("]->");
-    query.append("(target)");
-    String relPropertyMap =
-        getPropertiesListCypherFragment(FragmentType.rel, List.of(RoleType.property), edge);
-    if (!relPropertyMap.isEmpty()) {
-      query.append(" SET rel += ").append(relPropertyMap);
-    }
-    return query.toString();
-  }
-
-  private static String getLabelsPropertiesListCypherFragment(
-      String alias, FragmentType entityType, List<RoleType> roleTypes, Target target) {
-    StringBuilder sb = new StringBuilder();
-    List<String> labels =
-        ModelUtils.getStaticOrDynamicLabels(CONST_ROW_VARIABLE_NAME, entityType, target);
-    String propertiesKeyListStr = getPropertiesListCypherFragment(entityType, roleTypes, target);
-    // Labels
-    if (labels.size() > 0) {
-      sb.append(alias);
-      for (String label : labels) {
-        sb.append(":").append(ModelUtils.makeSpaceSafeValidNeo4jIdentifier(label.trim()));
-      }
-    } else if (StringUtils.isNotEmpty(target.getName())) {
-      sb.append(alias);
-      sb.append(":").append(ModelUtils.makeSpaceSafeValidNeo4jIdentifier(target.getName()));
-    } else {
-      sb.append(alias);
-    }
-    if (StringUtils.isNotEmpty(propertiesKeyListStr)) {
-      sb.append(" ").append(propertiesKeyListStr);
-    }
-    return sb.toString();
-  }
-
-  private static String getPropertiesListCypherFragment(
-      FragmentType entityType, List<RoleType> roleTypes, Target target) {
-    StringBuilder sb = new StringBuilder();
-    int targetColCount = 0;
-    for (Mapping m : target.getMappings()) {
-      if (m.getFragmentType() == entityType) {
-        if (roleTypes.contains(m.getRole())) {
-          if (targetColCount > 0) {
-            sb.append(",");
-          }
-          if (StringUtils.isNotEmpty(m.getConstant())) {
-            sb.append(ModelUtils.makeSpaceSafeValidNeo4jIdentifier(m.getName()))
-                .append(": \"")
-                .append(m.getConstant())
-                .append("\"");
-          } else {
-            sb.append(ModelUtils.makeSpaceSafeValidNeo4jIdentifier(m.getName()))
-                .append(": row.")
-                .append(m.getField());
-          }
-          targetColCount++;
+    /**
+     * getCypherQuery generates the batch import statement of the specified node or relationship target
+     *
+     * @param importSpecification the whole import specification
+     * @param target              the node or relationship target
+     * @return the batch import query
+     */
+    public static String getImportStatement(ImportSpecification importSpecification, EntityTarget target) {
+        var type = target.getTargetType();
+        switch (type) {
+            case NODE:
+                return unwindNodes((NodeTarget) target);
+            case RELATIONSHIP:
+                return unwindRelationships(importSpecification, (RelationshipTarget) target);
+            default:
+                throw new IllegalArgumentException(String.format("unexpected target type: %s", type));
         }
-      }
-    }
-    if (sb.length() > 0) {
-      return "{" + sb + "}";
-    }
-    return "";
-  }
-
-  /**
-   * Generates the Cypher schema statements for the given target.
-   *
-   * @return a list of Cypher schema statements
-   */
-  public static Set<String> getIndexAndConstraintsCypherStatements(Target target) {
-    TargetType type = target.getType();
-    switch (type) {
-      case node:
-        return getNodeIndexAndConstraintsCypherStatements(target);
-      case edge:
-        return getRelationshipIndexAndConstraintsCypherStatements(target);
-      default:
-        throw new IllegalArgumentException(String.format("unexpected target type: %s", type));
-    }
-  }
-
-  private static Set<String> getNodeIndexAndConstraintsCypherStatements(Target target) {
-    List<String> labels = ModelUtils.getStaticLabels(FragmentType.node, target);
-    Set<String> keyProperties =
-        filterProperties(
-            target,
-            (mapping) ->
-                mapping.getFragmentType() == FragmentType.node
-                    && mapping.getRole() == RoleType.key);
-    Set<String> uniqueProperties =
-        filterProperties(
-            target,
-            (mapping) -> isEntityProperty(mapping, FragmentType.node) && mapping.isUnique());
-    Set<String> mandatoryProperties =
-        filterProperties(
-            target,
-            (mapping) -> isEntityProperty(mapping, FragmentType.node) && mapping.isMandatory());
-    Set<String> indexedProperties =
-        filterProperties(
-            target,
-            (mapping) -> isEntityProperty(mapping, FragmentType.node) && mapping.isIndexed());
-
-    Set<String> cyphers =
-        new LinkedHashSet<>(getEntityKeyConstraintStatements(labels, keyProperties));
-    for (String uniqueProperty : uniqueProperties) {
-      cyphers.add(
-          "CREATE CONSTRAINT IF NOT EXISTS FOR (n:"
-              + StringUtils.join(ModelUtils.makeSpaceSafeValidNeo4jIdentifiers(labels), ":")
-              + ") REQUIRE n."
-              + ModelUtils.makeSpaceSafeValidNeo4jIdentifier(uniqueProperty)
-              + " IS UNIQUE");
-    }
-    for (String mandatoryProperty : mandatoryProperties) {
-      cyphers.add(
-          "CREATE CONSTRAINT IF NOT EXISTS FOR (n:"
-              + StringUtils.join(ModelUtils.makeSpaceSafeValidNeo4jIdentifiers(labels), ":")
-              + ") REQUIRE n."
-              + ModelUtils.makeSpaceSafeValidNeo4jIdentifier(mandatoryProperty)
-              + " IS NOT NULL");
-    }
-    for (String indexedProperty : indexedProperties) {
-      cyphers.add(
-          "CREATE INDEX IF NOT EXISTS FOR (t:"
-              + StringUtils.join(ModelUtils.makeSpaceSafeValidNeo4jIdentifiers(labels), ":")
-              + ") ON (t."
-              + ModelUtils.makeSpaceSafeValidNeo4jIdentifier(indexedProperty)
-              + ")");
     }
 
-    return cyphers;
-  }
-
-  // TODO: no-op if < 5.7 || not EE for some or all
-
-  private static Set<String> getRelationshipIndexAndConstraintsCypherStatements(Target target) {
-
-    Set<String> cyphers = new LinkedHashSet<>();
-    if (target.getEdgeNodesMatchMode() == EdgeNodesSaveMode.merge) {
-      cyphers.addAll(
-          getEntityKeyConstraintStatements(
-              ModelUtils.getStaticLabels(FragmentType.source, target),
-              filterProperties(
-                  target,
-                  (mapping) ->
-                      mapping.getFragmentType() == FragmentType.source
-                          && mapping.getRole() == RoleType.key)));
-      cyphers.addAll(
-          getEntityKeyConstraintStatements(
-              ModelUtils.getStaticLabels(FragmentType.target, target),
-              filterProperties(
-                  target,
-                  (mapping) ->
-                      mapping.getFragmentType() == FragmentType.target
-                          && mapping.getRole() == RoleType.key)));
-    }
-    String type = ModelUtils.getStaticType(target);
-    Set<String> keyProperties =
-        filterProperties(
-            target,
-            (mapping) ->
-                mapping.getFragmentType() == FragmentType.rel && mapping.getRole() == RoleType.key);
-    Set<String> uniqueProperties =
-        filterProperties(
-            target, (mapping) -> isEntityProperty(mapping, FragmentType.rel) && mapping.isUnique());
-    Set<String> mandatoryProperties =
-        filterProperties(
-            target,
-            (mapping) -> isEntityProperty(mapping, FragmentType.rel) && mapping.isMandatory());
-    Set<String> indexedProperties =
-        filterProperties(
-            target,
-            (mapping) -> isEntityProperty(mapping, FragmentType.rel) && mapping.isIndexed());
-
-    String escapedType = ModelUtils.makeSpaceSafeValidNeo4jIdentifier(type);
-    for (String relKeyProperty : keyProperties) {
-      cyphers.add(
-          "CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() REQUIRE r."
-              + ModelUtils.makeSpaceSafeValidNeo4jIdentifier(relKeyProperty)
-              + " IS RELATIONSHIP KEY");
-    }
-    for (String uniqueProperty : uniqueProperties) {
-      cyphers.add(
-          "CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() REQUIRE r."
-              + ModelUtils.makeSpaceSafeValidNeo4jIdentifier(uniqueProperty)
-              + " IS UNIQUE");
-    }
-    for (String mandatoryProperty : mandatoryProperties) {
-      cyphers.add(
-          "CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() REQUIRE r."
-              + ModelUtils.makeSpaceSafeValidNeo4jIdentifier(mandatoryProperty)
-              + " IS NOT NULL");
-    }
-    for (String indexedProperty : indexedProperties) {
-      cyphers.add(
-          "CREATE INDEX IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() ON (r."
-              + ModelUtils.makeSpaceSafeValidNeo4jIdentifier(indexedProperty)
-              + ")");
+    /**
+     * Generates the Cypher schema statements for the given target.
+     *
+     * @return a collection of Cypher schema statements
+     */
+    public static Set<String> getSchemaStatements(EntityTarget target) {
+        var type = target.getTargetType();
+        switch (type) {
+            case NODE:
+                return getNodeSchemaStatements((NodeTarget) target);
+            case RELATIONSHIP:
+                return getRelationshipSchemaStatements((RelationshipTarget) target);
+            default:
+                throw new IllegalArgumentException(String.format("unexpected target type: %s", type));
+        }
     }
 
-    return cyphers;
-  }
+    private static String unwindNodes(NodeTarget nodeTarget) {
+        String cypherLabels = CypherPatterns.labels(nodeTarget.getLabels());
+        CypherPatterns patterns = CypherPatterns.parsePatterns(nodeTarget, "n", ROW_VARIABLE_NAME);
 
-  private static List<String> getEntityKeyConstraintStatements(
-      List<String> labels, Set<String> nodeKeyProperties) {
-    List<String> statements = new ArrayList<>(labels.size());
-    for (String label : labels) {
-      String escapedLabel = ModelUtils.makeSpaceSafeValidNeo4jIdentifier(label);
-      // TODO: distinguish keys vs key mapping
-      for (String nodeKeyProperty : nodeKeyProperties) {
-        String escapedProperty = ModelUtils.makeSpaceSafeValidNeo4jIdentifier(nodeKeyProperty);
-        statements.add(
-            String.format(
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:%s) REQUIRE n.%s IS NODE KEY",
-                escapedLabel, escapedProperty));
-      }
+        return "UNWIND $" + ROWS_VARIABLE_NAME + " AS " + ROW_VARIABLE_NAME + " " +
+               nodeTarget.getWriteMode().name() + " (n" + cypherLabels + " {" + patterns.keysPattern() + "}) " + patterns.nonKeysSetClause();
     }
-    return statements;
-  }
 
-  private static String getRelationshipTypePropertiesListFragment(String prefix, Target target) {
-    StringBuilder sb = new StringBuilder();
-    List<String> relType =
-        ModelUtils.getStaticOrDynamicRelationshipType(CONST_ROW_VARIABLE_NAME, target);
-    sb.append(prefix).append(":").append(StringUtils.join(relType, ":"));
-    String properties =
-        getPropertiesListCypherFragment(FragmentType.rel, List.of(RoleType.key), target);
-    if (!properties.isEmpty()) {
-      sb.append(" ").append(properties);
+    private static String unwindRelationships(ImportSpecification importSpecification, RelationshipTarget relationship) {
+        String nodeClause = relationship.getNodeMatchMode().name();
+        NodeTarget startNode = resolveRelationshipNode(importSpecification, relationship.getStartNodeReference());
+        CypherPatterns startNodePatterns = CypherPatterns.parsePatterns(startNode, "start", ROW_VARIABLE_NAME);
+        NodeTarget endNode = resolveRelationshipNode(importSpecification, relationship.getEndNodeReference());
+        CypherPatterns endNodePatterns = CypherPatterns.parsePatterns(endNode, "end", ROW_VARIABLE_NAME);
+        String relationshipClause = relationship.getWriteMode().name();
+        CypherPatterns relationshipPatterns = CypherPatterns.parsePatterns(relationship, "r", ROW_VARIABLE_NAME);
+
+        return "UNWIND $" + ROWS_VARIABLE_NAME + " AS " + ROW_VARIABLE_NAME + " " +
+               nodeClause + "(start " + CypherPatterns.labels(startNode.getLabels()) + " {" + startNodePatterns.keysPattern() + "})" + startNodePatterns.nonKeysSetClause() + " " +
+               nodeClause + "(end " + CypherPatterns.labels(endNode.getLabels()) + " {" + endNodePatterns.keysPattern() + "})" + endNodePatterns.nonKeysSetClause() + " " +
+               relationshipClause + "(start)-[r:`" + relationship.getType() + "` {" + relationshipPatterns.keysPattern() + "}]->(end) " + relationshipPatterns.nonKeysSetClause();
     }
-    return sb.toString();
-  }
 
-  private static boolean isEntityProperty(Mapping mapping, FragmentType entityType) {
-    return mapping.getFragmentType() == entityType && mapping.getRole() == RoleType.property;
-  }
+    private static Set<String> getNodeSchemaStatements(NodeTarget target) {
+        NodeSchema schema = target.getSchema();
+        Set<String> statements = new LinkedHashSet<>();
+        // TODO: node type constraints
+        for (var constraint : schema.getNodeKeyConstraints()) {
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(constraint.getLabel()) + ") REQUIRE " + CypherPatterns.propertyList("n", constraint.getProperties()) + " IS NODE KEY " + CypherPatterns.schemaOptions(constraint.getOptions()));
+        }
+        for (var constraint : schema.getNodeUniqueConstraints()) {
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(constraint.getLabel()) + ") REQUIRE " + CypherPatterns.propertyList("n", constraint.getProperties()) + " IS UNIQUE " + CypherPatterns.schemaOptions(constraint.getOptions()));
+        }
+        for (var constraint : schema.getNodeExistenceConstraints()) {
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(constraint.getLabel()) + ") REQUIRE n." + CypherPatterns.escape(constraint.getProperty()) + " IS NOT NULL");
+        }
+        for (var index : schema.getRangeIndexes()) {
+            statements.add("CREATE INDEX " + index.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(index.getLabel()) + ") ON (" + CypherPatterns.propertyList("n", index.getProperties()) + ")");
+        }
+        for (var index : schema.getTextIndexes()) {
+            statements.add("CREATE TEXT INDEX " + index.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(index.getLabel()) + ") ON (n." + CypherPatterns.escape(index.getProperty()) + ") " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        for (var index : schema.getPointIndexes()) {
+            statements.add("CREATE POINT INDEX " + index.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(index.getLabel()) + ") ON (n." + CypherPatterns.escape(index.getProperty()) + ") " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        for (var index : schema.getFullTextIndexes()) {
+            statements.add("CREATE FULLTEXT INDEX " + index.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.labels(index.getLabels(), "|") + ") ON EACH [" + CypherPatterns.propertyList("n", index.getProperties()) + "] " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        for (var index : schema.getVectorIndexes()) {
+            statements.add("CREATE VECTOR INDEX " + index.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(index.getLabel()) + ") ON (n." + CypherPatterns.escape(index.getProperty()) + ") " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        return statements;
+    }
+
+
+    private static Set<String> getRelationshipSchemaStatements(RelationshipTarget target) {
+        RelationshipSchema schema = target.getSchema();
+        Set<String> statements = new LinkedHashSet<>();
+        String type = target.getType();
+        // TODO: relation type constraints
+        for (var constraint : schema.getRelationshipKeyConstraints()) {
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() REQUIRE " + CypherPatterns.propertyList("r", constraint.getProperties()) + " IS NODE KEY " + CypherPatterns.schemaOptions(constraint.getOptions()));
+        }
+        for (var constraint : schema.getRelationshipUniqueConstraints()) {
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() REQUIRE " + CypherPatterns.propertyList("r", constraint.getProperties()) + " IS UNIQUE " + CypherPatterns.schemaOptions(constraint.getOptions()));
+        }
+        for (var constraint : schema.getRelationshipExistenceConstraints()) {
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() REQUIRE r." + CypherPatterns.escape(constraint.getProperty()) + " IS NOT NULL");
+        }
+        for (var index : schema.getRangeIndexes()) {
+            statements.add("CREATE INDEX " + index.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() ON (" + CypherPatterns.propertyList("r", index.getProperties()) + ")");
+        }
+        for (var index : schema.getTextIndexes()) {
+            statements.add("CREATE TEXT INDEX " + index.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() ON (r." + CypherPatterns.escape(index.getProperty()) + ") " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        for (var index : schema.getPointIndexes()) {
+            statements.add("CREATE POINT INDEX " + index.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() ON (r." + CypherPatterns.escape(index.getProperty()) + ") " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        for (var index : schema.getFullTextIndexes()) {
+            statements.add("CREATE FULLTEXT INDEX " + index.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() ON EACH [" + CypherPatterns.propertyList("r", index.getProperties()) + "] " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        for (var index : schema.getVectorIndexes()) {
+            statements.add("CREATE VECTOR INDEX " + index.getName() + " IF NOT EXISTS FOR ()-[r:" + CypherPatterns.escape(type) + "]-() ON (r." + CypherPatterns.escape(index.getProperty()) + ") " + CypherPatterns.schemaOptions(index.getOptions()));
+        }
+        return statements;
+    }
+
+    private static NodeTarget resolveRelationshipNode(ImportSpecification importSpecification, String reference) {
+        return importSpecification.getTargets().getNodes().stream()
+                .filter(target -> reference.equals(target.getName()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Could not resolve node target reference %s", reference)));
+    }
+}
+
+class CypherPatterns {
+
+    private final String keyPropertiesPattern;
+    private final String nonKeyPropertiesSet;
+
+    private CypherPatterns(String keyPropertiesPattern, String nonKeyPropertiesSet) {
+        this.keyPropertiesPattern = keyPropertiesPattern;
+        this.nonKeyPropertiesSet = nonKeyPropertiesSet;
+    }
+
+    public static CypherPatterns parsePatterns(EntityTarget entity, String entityVariable, String rowVariable) {
+        Set<String> keyProperties = new LinkedHashSet<>(entity.getKeyProperties());
+        String cypherKeyProperties = propertyList(entity, escapeAll(keyProperties), rowVariable);
+        List<String> nonKeyProperties = new ArrayList<>(entity.getAllProperties());
+        nonKeyProperties.removeAll(keyProperties);
+        String cypherSetNonKeys = propertyList(entity, propertyList(entityVariable, nonKeyProperties), rowVariable, "SET ", "=");
+        return new CypherPatterns(cypherKeyProperties, cypherSetNonKeys);
+    }
+
+    public static Collection<String> propertyList(String variable, List<String> properties) {
+        return prefixWith(variable + ".", escapeAll(properties));
+    }
+
+    public static String schemaOptions(Map<String, Object> options) {
+        return "OPTIONS " + optionsAsMap(options);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String schemaOption(Object value) {
+        if (value instanceof Map) {
+            return optionsAsMap((Map<String, Object>) value);
+        }
+        if (value instanceof Collection<?>) {
+            return optionsAsList((Collection<?>) value);
+        }
+        if (value instanceof String) {
+            return String.format("'%s'", value);
+        }
+        return String.valueOf(value);
+    }
+
+    private static String optionsAsMap(Map<String, Object> options) {
+        return options.entrySet()
+                .stream()
+                .map(entry -> String.format("`%s`: %s", entry.getKey(), schemaOption(entry.getValue())))
+                .collect(Collectors.joining(", ", "{", "}"));
+    }
+
+    private static String optionsAsList(Collection<?> value) {
+        return value.stream().map(CypherPatterns::schemaOption).collect(Collectors.joining(",", "[", "]"));
+    }
+
+    public String keysPattern() {
+        return keyPropertiesPattern;
+    }
+
+    public String nonKeysSetClause() {
+        return nonKeyPropertiesSet;
+    }
+
+    public static String labels(List<String> labels) {
+        return labels(labels, ":");
+    }
+
+    public static String labels(List<String> labels, String separator) {
+        return labels
+                .stream()
+                .collect(Collectors.joining(String.format("`%s`", separator), ":`", "`"));
+    }
+
+    private static String propertyList(EntityTarget target, Collection<String> properties, String rowVariable) {
+        return propertyList(target, properties, rowVariable, "", ":");
+    }
+
+    private static String propertyList(EntityTarget target, Collection<String> properties, String rowVariable, String prefix, String separator) {
+        Map<String, String> fieldsByProperty = target.getProperties().stream().collect(toMap(PropertyMapping::getTargetProperty, PropertyMapping::getSourceField));
+        return properties
+                .stream()
+                .map(property -> String.format("%s%s%s.`%s`", property, separator, rowVariable, fieldsByProperty.get(property)))
+                .collect(Collectors.joining(", ", prefix, ""));
+    }
+
+    private static Collection<String> prefixWith(String prefix, List<String> elements) {
+        return elements.stream().map(element -> String.format("%s%s", prefix, element)).collect(Collectors.toList());
+    }
+
+    private static List<String> escapeAll(Collection<String> properties) {
+        return properties.stream().map(CypherPatterns::escape).collect(Collectors.toList());
+    }
+
+    public static String escape(String identifier) {
+        return String.format("`%s`", identifier);
+    }
 }

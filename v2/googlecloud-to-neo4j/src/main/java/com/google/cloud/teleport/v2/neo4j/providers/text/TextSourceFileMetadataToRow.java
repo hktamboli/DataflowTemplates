@@ -22,13 +22,14 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
+import org.neo4j.importer.v1.sources.TextSource;
 
 /** Transform to return zero row PCollection with schema from text sources. */
 public class TextSourceFileMetadataToRow extends PTransform<PBegin, PCollection<Row>> {
 
   Source source;
 
-  public TextSourceFileMetadataToRow(Source source) {
+  public TextSourceFileMetadataToRow(TextSource source) {
     this.source = source;
   }
 

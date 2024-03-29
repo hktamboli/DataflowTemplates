@@ -15,16 +15,17 @@
  */
 package com.google.cloud.teleport.v2.neo4j.actions.preload;
 
-import com.google.cloud.teleport.v2.neo4j.model.job.Action;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
+import org.neo4j.importer.v1.actions.Action;
+
 import java.util.List;
 
 /**
  * Interface for running preload Actions. Before the pipeline loads, PCollections are not available.
  */
-public interface PreloadAction {
+public interface PreloadAction<T extends Action> {
 
-  void configure(Action action, ActionContext context);
+  void configure(T action, ActionContext context);
 
   List<String> execute();
 }

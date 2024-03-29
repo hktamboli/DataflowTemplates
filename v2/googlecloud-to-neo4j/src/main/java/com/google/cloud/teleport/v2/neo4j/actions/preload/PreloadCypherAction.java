@@ -26,11 +26,12 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.TransactionConfig;
+import org.neo4j.importer.v1.actions.CypherAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Cypher runner action handler. */
-public class PreloadCypherAction implements PreloadAction {
+public class PreloadCypherAction implements PreloadAction<CypherAction> {
 
   private static final Logger LOG = LoggerFactory.getLogger(PreloadCypherAction.class);
   private final BiFunction<ConnectionParams, String, Neo4jConnection> connectionProvider;
@@ -48,10 +49,10 @@ public class PreloadCypherAction implements PreloadAction {
   }
 
   @Override
-  public void configure(Action action, ActionContext context) {
-    String cypher = action.options.get("cypher");
+  public void configure(CypherAction action, ActionContext context) {
+    String cypher = action.getQuery();
     if (StringUtils.isEmpty(cypher)) {
-      throw new RuntimeException("Options 'cypher' not provided for preload cypher action.");
+      throw new RuntimeException("Cypher query not provided for preload cypher action.");
     }
     this.cypher = cypher;
     this.context = context;

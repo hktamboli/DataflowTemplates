@@ -32,11 +32,11 @@ public class TextParserUtils {
   private static final Logger LOG = LoggerFactory.getLogger(TextParserUtils.class);
 
   public static List<Object> parseDelimitedLine(CSVFormat csvFormat, String line) {
-    List<Object> textCols = new ArrayList<>();
     if (StringUtils.isEmpty(line)) {
-      return null;
+      return List.of();
     }
 
+    List<Object> textCols = new ArrayList<>();
     try (CSVParser csvParser = CSVParser.parse(line, csvFormat)) {
       // this is always going to be 1 row
       CSVRecord csvRecord = csvParser.getRecords().get(0);

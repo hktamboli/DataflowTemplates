@@ -15,33 +15,26 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
-import com.google.cloud.teleport.v2.neo4j.model.job.Source;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
+import org.neo4j.importer.v1.targets.Target;
 
 /**
  * Convenience object for passing Source metadata, Target metadata, PCollection schema, and nullable
  * source rows, together.
  */
-public class TargetQuerySpec {
+public class TargetQuerySpec<T extends Target> {
 
-  private final Source source;
   private final Schema sourceBeamSchema;
   private final PCollection<Row> nullableSourceRows;
-  private final Target target;
+  private final T target;
 
   public TargetQuerySpec(
-      Source source, Schema sourceBeamSchema, PCollection<Row> nullableSourceRows, Target target) {
-    this.source = source;
+          Schema sourceBeamSchema, PCollection<Row> nullableSourceRows, T target) {
     this.sourceBeamSchema = sourceBeamSchema;
     this.nullableSourceRows = nullableSourceRows;
     this.target = target;
-  }
-
-  public Source getSource() {
-    return source;
   }
 
   public Schema getSourceBeamSchema() {
@@ -56,35 +49,29 @@ public class TargetQuerySpec {
     return target;
   }
 
-  public static class TargetQuerySpecBuilder {
+  public static class TargetQuerySpecBuilder<T extends Target> {
 
-    private Source source;
     private Schema sourceBeamSchema;
     private PCollection<Row> nullableSourceRows;
-    private Target target;
+    private T target;
 
-    public TargetQuerySpecBuilder source(Source source) {
-      this.source = source;
-      return this;
-    }
-
-    public TargetQuerySpecBuilder sourceBeamSchema(Schema sourceBeamSchema) {
+    public TargetQuerySpecBuilder<T> sourceBeamSchema(Schema sourceBeamSchema) {
       this.sourceBeamSchema = sourceBeamSchema;
       return this;
     }
 
-    public TargetQuerySpecBuilder nullableSourceRows(PCollection<Row> nullableSourceRows) {
+    public TargetQuerySpecBuilder<T> nullableSourceRows(PCollection<Row> nullableSourceRows) {
       this.nullableSourceRows = nullableSourceRows;
       return this;
     }
 
-    public TargetQuerySpecBuilder target(Target target) {
+    public TargetQuerySpecBuilder<T> target(T target) {
       this.target = target;
       return this;
     }
 
-    public TargetQuerySpec build() {
-      return new TargetQuerySpec(source, sourceBeamSchema, nullableSourceRows, target);
+    public TargetQuerySpec<T> build() {
+      return new TargetQuerySpec<>(sourceBeamSchema, nullableSourceRows, target);
     }
   }
 }

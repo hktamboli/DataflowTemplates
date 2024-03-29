@@ -47,7 +47,7 @@ public class LineToRowFnTest {
     PCollection<Row> convertedRow =
         pipeline
             .apply(Create.of("1,Neo4j", "2,MySQL"))
-            .apply(ParDo.of(new LineToRowFn(source, sourceSchema, csvFormat)))
+            .apply(ParDo.of(new LineToRowFn(sourceSchema, csvFormat)))
             .setCoder(RowCoder.of(sourceSchema));
 
     // Assert
@@ -77,7 +77,7 @@ public class LineToRowFnTest {
     PCollection<Row> convertedRow =
         pipeline
             .apply(Create.of("1,Neo4j", "2,MySQL"))
-            .apply(ParDo.of(new LineToRowFn(source, sourceSchema, csvFormat)))
+            .apply(ParDo.of(new LineToRowFn(sourceSchema, csvFormat)))
             .setCoder(RowCoder.of(sourceSchema));
 
     // Assert

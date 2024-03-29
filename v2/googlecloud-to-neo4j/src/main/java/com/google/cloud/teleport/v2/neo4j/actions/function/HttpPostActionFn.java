@@ -53,7 +53,7 @@ public class HttpPostActionFn extends DoFn<Integer, Row> {
     try {
       CloseableHttpResponse response =
           HttpUtils.getHttpResponse(
-              true, uri, this.context.action.options, this.context.action.headers);
+              true, uri, this.context.action.headers);
       LOG.info(
           "Executing http_post {} transform, returned: {}",
           this.context.action.name,

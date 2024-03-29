@@ -41,13 +41,12 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForNodes_NoKeys() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                specForNode(
-                    "Person",
-                    Map.of(
-                        "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
-                    List.of()),
-                false,
+                    specForNode(
+                        "Person",
+                        Map.of(
+                            "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
+                        List.of()).getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo("SELECT * FROM PCOLLECTION");
   }
@@ -56,13 +55,12 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForNodes_WithKeys() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                specForNode(
-                    "Person",
-                    Map.of(
-                        "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
-                    List.of("ID")),
-                false,
+                    specForNode(
+                        "Person",
+                        Map.of(
+                            "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
+                        List.of("ID")).getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo("SELECT * FROM PCOLLECTION");
   }
@@ -71,13 +69,12 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForNodes_WithBaseSQL() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                specForNode(
-                    "Person",
-                    Map.of(
-                        "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
-                    List.of("ID")),
-                false,
+                    specForNode(
+                        "Person",
+                        Map.of(
+                            "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
+                        List.of("ID")).getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 "SELECT ID, NAME, SURNAME, DATE_OF_BIRTH, BIRTH_PLACE FROM TABLE"))
         .isEqualTo(
             "SELECT * FROM (SELECT ID, NAME, SURNAME, DATE_OF_BIRTH, BIRTH_PLACE FROM TABLE)");
@@ -87,13 +84,12 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForNodes_WithBaseSQL_Sort() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                specForNode(
-                    "Person",
-                    Map.of(
-                        "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
-                    List.of("ID")),
-                true,
+                    specForNode(
+                        "Person",
+                        Map.of(
+                            "ID", "id", "NAME", "name", "SURNAME", "surname", "DATE_OF_BIRTH", "dob"),
+                        List.of("ID")).getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    true,
                 "SELECT ID, NAME, SURNAME, DATE_OF_BIRTH, BIRTH_PLACE FROM TABLE"))
         .isEqualTo(
             "SELECT * FROM (SELECT ID, NAME, SURNAME, DATE_OF_BIRTH, BIRTH_PLACE FROM TABLE)");
@@ -103,16 +99,15 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForRelationships_NoKeys() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
-                specForRel(
-                    "WORKS_AT",
-                    Map.of("CONTRACT_DATE", "contractDate"),
-                    List.of(),
-                    "Person",
-                    Map.of("PERSON_ID", "id"),
-                    "Company",
-                    Map.of("COMPANY_ID", "id")),
-                false,
+                    specForRel(
+                        "WORKS_AT",
+                        Map.of("CONTRACT_DATE", "contractDate"),
+                        List.of(),
+                        "Person",
+                        Map.of("PERSON_ID", "id"),
+                        "Company",
+                        Map.of("COMPANY_ID", "id")).getTarget(), Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
+                    false,
                 null))
         .isEqualTo("SELECT * FROM PCOLLECTION");
   }
@@ -121,16 +116,15 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForRelationships_WithKeys() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
-                specForRel(
-                    "WORKS_AT",
-                    Map.of("ID", "id", "CONTRACT_DATE", "contractDate"),
-                    List.of("ID"),
-                    "Person",
-                    Map.of("PERSON_ID", "id"),
-                    "Company",
-                    Map.of("COMPANY_ID", "id")),
-                false,
+                    specForRel(
+                        "WORKS_AT",
+                        Map.of("ID", "id", "CONTRACT_DATE", "contractDate"),
+                        List.of("ID"),
+                        "Person",
+                        Map.of("PERSON_ID", "id"),
+                        "Company",
+                        Map.of("COMPANY_ID", "id")).getTarget(), Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
+                    false,
                 null))
         .isEqualTo("SELECT * FROM PCOLLECTION");
   }
@@ -139,16 +133,15 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForRelationships_WithBaseSQL() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
-                specForRel(
-                    "WORKS_AT",
-                    Map.of("ID", "id", "CONTRACT_DATE", "contractDate"),
-                    List.of("ID"),
-                    "Person",
-                    Map.of("PERSON_ID", "id"),
-                    "Company",
-                    Map.of("COMPANY_ID", "id")),
-                false,
+                    specForRel(
+                        "WORKS_AT",
+                        Map.of("ID", "id", "CONTRACT_DATE", "contractDate"),
+                        List.of("ID"),
+                        "Person",
+                        Map.of("PERSON_ID", "id"),
+                        "Company",
+                        Map.of("COMPANY_ID", "id")).getTarget(), Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
+                    false,
                 "SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE"))
         .isEqualTo("SELECT * FROM (SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE)");
   }
@@ -157,16 +150,15 @@ public class ModelUtilsTest {
   public void shouldGenerateCorrectSqlStatementForRelationships_WithBaseSQL_Sort() {
     assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
-                specForRel(
-                    "WORKS_AT",
-                    Map.of("ID", "id", "CONTRACT_DATE", "contractDate"),
-                    List.of("ID"),
-                    "Person",
-                    Map.of("PERSON_ID", "id"),
-                    "Company",
-                    Map.of("COMPANY_ID", "id")),
-                true,
+                    specForRel(
+                        "WORKS_AT",
+                        Map.of("ID", "id", "CONTRACT_DATE", "contractDate"),
+                        List.of("ID"),
+                        "Person",
+                        Map.of("PERSON_ID", "id"),
+                        "Company",
+                        Map.of("COMPANY_ID", "id")).getTarget(), Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
+                    true,
                 "SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE"))
         .isEqualTo(
             "SELECT * FROM (SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE) ORDER BY `COMPANY_ID`");
@@ -174,25 +166,25 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithGrouping() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForNode(
+                      "Person",
+                      mapOf(
+                              "ID",
+                              "id",
+                              "NAME",
+                              "name",
+                              "SURNAME",
+                              "surname",
+                              "DATE_OF_BIRTH",
+                              "dob"),
+                      List.of()))
+              .group(true)
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                new TransformBuilder(
-                        specForNode(
-                            "Person",
-                            mapOf(
-                                "ID",
-                                "id",
-                                "NAME",
-                                "name",
-                                "SURNAME",
-                                "surname",
-                                "DATE_OF_BIRTH",
-                                "dob"),
-                            List.of()))
-                    .group(true)
-                    .build(),
-                false,
+                    build.getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo(
             "SELECT `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH` FROM PCOLLECTION GROUP BY `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH`");
@@ -200,26 +192,26 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithGrouping_Limited() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForNode(
+                      "Person",
+                      mapOf(
+                              "ID",
+                              "id",
+                              "NAME",
+                              "name",
+                              "SURNAME",
+                              "surname",
+                              "DATE_OF_BIRTH",
+                              "dob"),
+                      List.of()))
+              .group(true)
+              .limit(100)
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                new TransformBuilder(
-                        specForNode(
-                            "Person",
-                            mapOf(
-                                "ID",
-                                "id",
-                                "NAME",
-                                "name",
-                                "SURNAME",
-                                "surname",
-                                "DATE_OF_BIRTH",
-                                "dob"),
-                            List.of()))
-                    .group(true)
-                    .limit(100)
-                    .build(),
-                false,
+                    build.getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo(
             "SELECT `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH` FROM PCOLLECTION GROUP BY `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH` LIMIT 100");
@@ -227,26 +219,26 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithGrouping_Where() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForNode(
+                      "Person",
+                      mapOf(
+                              "ID",
+                              "id",
+                              "NAME",
+                              "name",
+                              "SURNAME",
+                              "surname",
+                              "DATE_OF_BIRTH",
+                              "dob"),
+                      List.of()))
+              .group(true)
+              .where("NAME LIKE 'A%'")
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                new TransformBuilder(
-                        specForNode(
-                            "Person",
-                            mapOf(
-                                "ID",
-                                "id",
-                                "NAME",
-                                "name",
-                                "SURNAME",
-                                "surname",
-                                "DATE_OF_BIRTH",
-                                "dob"),
-                            List.of()))
-                    .group(true)
-                    .where("NAME LIKE 'A%'")
-                    .build(),
-                false,
+                    build.getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo(
             "SELECT `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH` FROM PCOLLECTION WHERE NAME LIKE 'A%' GROUP BY `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH`");
@@ -254,25 +246,25 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithAggregation() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForNode(
+                      "Person",
+                      mapOf(
+                              "ID",
+                              "id",
+                              "NAME",
+                              "name",
+                              "SURNAME",
+                              "surname",
+                              "DATE_OF_BIRTH",
+                              "dob"),
+                      List.of()))
+              .aggregations(aggregation("COUNT", "COUNT(*)"))
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                new TransformBuilder(
-                        specForNode(
-                            "Person",
-                            mapOf(
-                                "ID",
-                                "id",
-                                "NAME",
-                                "name",
-                                "SURNAME",
-                                "surname",
-                                "DATE_OF_BIRTH",
-                                "dob"),
-                            List.of()))
-                    .aggregations(aggregation("COUNT", "COUNT(*)"))
-                    .build(),
-                false,
+                    build.getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo(
             "SELECT `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH`, COUNT(*) AS `COUNT` FROM PCOLLECTION GROUP BY `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH`");
@@ -280,27 +272,27 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithAggregations() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForNode(
+                      "Person",
+                      mapOf(
+                              "ID",
+                              "id",
+                              "NAME",
+                              "name",
+                              "SURNAME",
+                              "surname",
+                              "DATE_OF_BIRTH",
+                              "dob"),
+                      List.of()))
+              .aggregations(
+                      aggregation("NUMBER_OF_PEOPLE", "COUNT(*)"),
+                      aggregation("YOUNGEST", "MAX(DATE_OF_BIRTH)"))
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                new TransformBuilder(
-                        specForNode(
-                            "Person",
-                            mapOf(
-                                "ID",
-                                "id",
-                                "NAME",
-                                "name",
-                                "SURNAME",
-                                "surname",
-                                "DATE_OF_BIRTH",
-                                "dob"),
-                            List.of()))
-                    .aggregations(
-                        aggregation("NUMBER_OF_PEOPLE", "COUNT(*)"),
-                        aggregation("YOUNGEST", "MAX(DATE_OF_BIRTH)"))
-                    .build(),
-                false,
+                    build.getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo(
             "SELECT `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH`, COUNT(*) AS `NUMBER_OF_PEOPLE`, MAX(DATE_OF_BIRTH) AS `YOUNGEST` FROM PCOLLECTION GROUP BY `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH`");
@@ -308,29 +300,29 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithAggregations_Where_Limit() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForNode(
+                      "Person",
+                      mapOf(
+                              "ID",
+                              "id",
+                              "NAME",
+                              "name",
+                              "SURNAME",
+                              "surname",
+                              "DATE_OF_BIRTH",
+                              "dob"),
+                      List.of()))
+              .aggregations(
+                      aggregation("NUMBER_OF_PEOPLE", "COUNT(*)"),
+                      aggregation("YOUNGEST", "MAX(DATE_OF_BIRTH)"))
+              .where("NAME LIKE 'A%'")
+              .limit(1000)
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
-                new TransformBuilder(
-                        specForNode(
-                            "Person",
-                            mapOf(
-                                "ID",
-                                "id",
-                                "NAME",
-                                "name",
-                                "SURNAME",
-                                "surname",
-                                "DATE_OF_BIRTH",
-                                "dob"),
-                            List.of()))
-                    .aggregations(
-                        aggregation("NUMBER_OF_PEOPLE", "COUNT(*)"),
-                        aggregation("YOUNGEST", "MAX(DATE_OF_BIRTH)"))
-                    .where("NAME LIKE 'A%'")
-                    .limit(1000)
-                    .build(),
-                false,
+                    build.getTarget(), Set.of("ID", "NAME", "SURNAME", "DATE_OF_BIRTH"),
+                    false,
                 null))
         .isEqualTo(
             "SELECT `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH`, COUNT(*) AS `NUMBER_OF_PEOPLE`, MAX(DATE_OF_BIRTH) AS `YOUNGEST` FROM PCOLLECTION WHERE NAME LIKE 'A%' GROUP BY `ID`, `NAME`, `SURNAME`, `DATE_OF_BIRTH` LIMIT 1000");
@@ -338,21 +330,21 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithBaseSQL_Sort_Group() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForRel(
+                      "WORKS_AT",
+                      mapOf("ID", "id", "CONTRACT_DATE", "contractDate"),
+                      List.of("ID"),
+                      "Person",
+                      mapOf("PERSON_ID", "id"),
+                      "Company",
+                      mapOf("COMPANY_ID", "id")))
+              .group(true)
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
-                new TransformBuilder(
-                        specForRel(
-                            "WORKS_AT",
-                            mapOf("ID", "id", "CONTRACT_DATE", "contractDate"),
-                            List.of("ID"),
-                            "Person",
-                            mapOf("PERSON_ID", "id"),
-                            "Company",
-                            mapOf("COMPANY_ID", "id")))
-                    .group(true)
-                    .build(),
-                true,
+                    build.getTarget(), Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
+                    true,
                 "SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE"))
         .isEqualTo(
             "SELECT `ID`, `CONTRACT_DATE`, `PERSON_ID`, `COMPANY_ID` FROM (SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE) GROUP BY `ID`, `CONTRACT_DATE`, `PERSON_ID`, `COMPANY_ID` ORDER BY `COMPANY_ID`");
@@ -360,22 +352,22 @@ public class ModelUtilsTest {
 
   @Test
   public void shouldGenerateCorrectSqlStatementForTransforms_WithBaseSQL_Sort_Aggregations_Limit() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForRel(
+                      "WORKS_AT",
+                      mapOf("ID", "id", "CONTRACT_DATE", "contractDate"),
+                      List.of("ID"),
+                      "Person",
+                      mapOf("PERSON_ID", "id"),
+                      "Company",
+                      mapOf("COMPANY_ID", "id")))
+              .aggregations(aggregation("ENTRIES", "COUNT(*)"))
+              .limit(1000)
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
-                new TransformBuilder(
-                        specForRel(
-                            "WORKS_AT",
-                            mapOf("ID", "id", "CONTRACT_DATE", "contractDate"),
-                            List.of("ID"),
-                            "Person",
-                            mapOf("PERSON_ID", "id"),
-                            "Company",
-                            mapOf("COMPANY_ID", "id")))
-                    .aggregations(aggregation("ENTRIES", "COUNT(*)"))
-                    .limit(1000)
-                    .build(),
-                true,
+                    build.getTarget(), Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
+                    true,
                 "SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE"))
         .isEqualTo(
             "SELECT `ID`, `CONTRACT_DATE`, `PERSON_ID`, `COMPANY_ID`, COUNT(*) AS `ENTRIES` FROM (SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE) GROUP BY `ID`, `CONTRACT_DATE`, `PERSON_ID`, `COMPANY_ID` ORDER BY `COMPANY_ID` LIMIT 1000");
@@ -384,23 +376,23 @@ public class ModelUtilsTest {
   @Test
   public void
       shouldGenerateCorrectSqlStatementForTransforms_WithBaseSQL_Sort_Aggregations_Limit_Where() {
-    assertThat(
+      final TargetQuerySpec build = new TransformBuilder(
+              specForRel(
+                      "WORKS_AT",
+                      mapOf("ID", "id", "CONTRACT_DATE", "contractDate"),
+                      List.of("ID"),
+                      "Person",
+                      mapOf("PERSON_ID", "id"),
+                      "Company",
+                      mapOf("COMPANY_ID", "id")))
+              .aggregations(aggregation("ENTRIES", "COUNT(*)"))
+              .where("PERSON_ID BETWEEN 0 AND 10000")
+              .limit(1000)
+              .build();
+      assertThat(
             ModelUtils.getTargetSql(
-                Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
-                new TransformBuilder(
-                        specForRel(
-                            "WORKS_AT",
-                            mapOf("ID", "id", "CONTRACT_DATE", "contractDate"),
-                            List.of("ID"),
-                            "Person",
-                            mapOf("PERSON_ID", "id"),
-                            "Company",
-                            mapOf("COMPANY_ID", "id")))
-                    .aggregations(aggregation("ENTRIES", "COUNT(*)"))
-                    .where("PERSON_ID BETWEEN 0 AND 10000")
-                    .limit(1000)
-                    .build(),
-                true,
+                    build.getTarget(), Set.of("ID", "PERSON_ID", "COMPANY_ID", "CONTRACT_DATE"),
+                    true,
                 "SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE"))
         .isEqualTo(
             "SELECT `ID`, `CONTRACT_DATE`, `PERSON_ID`, `COMPANY_ID`, COUNT(*) AS `ENTRIES` FROM (SELECT ID, PERSON_ID, COMPANY_ID, CONTRACT_DATE FROM TABLE) WHERE PERSON_ID BETWEEN 0 AND 10000 GROUP BY `ID`, `CONTRACT_DATE`, `PERSON_ID`, `COMPANY_ID` ORDER BY `COMPANY_ID` LIMIT 1000");
@@ -442,7 +434,7 @@ public class ModelUtilsTest {
     Source source = new Source();
     source.setFieldNames(sourceFields.toArray(String[]::new));
 
-    return new TargetQuerySpec(source, Schema.builder().build(), null, target);
+    return new TargetQuerySpec(Schema.builder().build(), null, target);
   }
 
   @SuppressWarnings("SameParameterValue")
@@ -515,7 +507,7 @@ public class ModelUtilsTest {
     Source source = new Source();
     source.setFieldNames(sourceFields.toArray(String[]::new));
 
-    return new TargetQuerySpec(source, Schema.builder().build(), null, target);
+    return new TargetQuerySpec(Schema.builder().build(), null, target);
   }
 
   private static FieldNameTuple fieldNameTuple(String field, String property) {

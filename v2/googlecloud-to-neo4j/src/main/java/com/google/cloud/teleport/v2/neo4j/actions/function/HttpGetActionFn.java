@@ -53,7 +53,7 @@ public class HttpGetActionFn extends DoFn<Integer, Row> {
     try {
       CloseableHttpResponse response =
           HttpUtils.getHttpResponse(
-              false, uri, this.context.action.options, this.context.action.headers);
+              false, uri, this.context.action.headers);
       LOG.info(
           "Executing http_get {} transform, returned: {}",
           this.context.action.name,

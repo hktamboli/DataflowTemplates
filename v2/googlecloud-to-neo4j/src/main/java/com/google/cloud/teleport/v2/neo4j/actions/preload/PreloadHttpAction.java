@@ -15,38 +15,39 @@
  */
 package com.google.cloud.teleport.v2.neo4j.actions.preload;
 
-import com.google.cloud.teleport.v2.neo4j.model.job.Action;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import com.google.cloud.teleport.v2.neo4j.utils.HttpUtils;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.neo4j.importer.v1.actions.HttpAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Http POST action handler. */
-public class PreloadHttpPostAction implements PreloadAction {
+public class PreloadHttpAction implements PreloadAction<HttpAction> {
 
-  private static final Logger LOG = LoggerFactory.getLogger(PreloadHttpPostAction.class);
+  private static final Logger LOG = LoggerFactory.getLogger(PreloadHttpAction.class);
 
-  private Action action;
+  private HttpAction action;
 
   @Override
-  public void configure(Action action, ActionContext context) {
+  public void configure(HttpAction action, ActionContext context) {
     this.action = action;
   }
 
   @Override
   public List<String> execute() {
     List<String> msgs = new ArrayList<>();
-    String uri = action.options.get("url");
+    String uri = action.getUrl();
     if (StringUtils.isEmpty(uri)) {
       throw new RuntimeException("Options 'uri' not provided for preload http_post action.");
     }
+    ;
     try {
       CloseableHttpResponse response =
-          HttpUtils.getHttpResponse(false, uri, action.options, action.headers);
+          HttpUtils.getHttpResponse(isPostRequest(), uri, action.getHeaders());
       LOG.info("Request returned: {}", HttpUtils.getResponseContent(response));
 
     } catch (Exception e) {
@@ -55,5 +56,18 @@ public class PreloadHttpPostAction implements PreloadAction {
     }
 
     return msgs;
+  }
+
+  private boolean isPostRequest() {
+    switch (action.getMethod()) {
+        case GET:
+          return false;
+        case POST:
+          return true;
+      default:
+        throw new RuntimeException(
+                String.format("Unsupported HTTP method: %s, please specify GET or POST", action.getMethod())
+        );
+    }
   }
 }

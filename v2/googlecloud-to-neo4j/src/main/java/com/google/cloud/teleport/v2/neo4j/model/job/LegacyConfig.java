@@ -19,7 +19,7 @@ import java.io.Serializable;
 import org.json.JSONObject;
 
 /** Global configuration options. */
-public class Config implements Serializable {
+public class LegacyConfig implements Serializable {
 
   private Boolean resetDb = false;
   private Boolean indexAllProperties = false;
@@ -31,9 +31,9 @@ public class Config implements Serializable {
   private Integer edgeBatchSize = 1000;
   private Integer customQueryBatchSize = 1000;
 
-  public Config() {}
+  public LegacyConfig() {}
 
-  public Config(JSONObject jsonObject) {
+  public LegacyConfig(JSONObject jsonObject) {
     resetDb = jsonObject.has("reset_db") && jsonObject.getBoolean("reset_db");
     nodeParallelism =
         jsonObject.has("node_write_parallelism")

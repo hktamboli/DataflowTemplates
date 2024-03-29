@@ -15,7 +15,6 @@
  */
 package com.google.cloud.teleport.v2.neo4j.providers.text;
 
-import java.util.List;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.Row;
@@ -23,29 +22,38 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Transforms list of object to PCollection of Rows. */
+import java.util.List;
+
+/**
+ * Transforms list of object to PCollection of Rows.
+ */
 public class ListOfStringToRowFn extends DoFn<List<Object>, Row> {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ListOfStringToRowFn.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ListOfStringToRowFn.class);
 
-  private final Schema schema;
+    private final Schema schema;
 
-  public ListOfStringToRowFn(Schema sourceSchema) {
-    this.schema = sourceSchema;
-  }
-
-  @ProcessElement
-  public void processElement(ProcessContext processContext) {
-
-    List<Object> strCols = processContext.element();
-    if (this.schema.getFieldCount() != strCols.size()) {
-      LOG.error(
-          "Row field count mismatch, expecting: {}, row: {}",
-          this.schema.getFieldCount(),
-          StringUtils.join(strCols.size(), ","));
-    } else {
-      Row row = Row.withSchema(this.schema).addValues(strCols).build();
-      processContext.output(row);
+    public ListOfStringToRowFn(Schema sourceSchema) {
+        this.schema = sourceSchema;
     }
-  }
+
+    @ProcessElement
+    public void processElement(ProcessContext processContext) {
+        List<Object> strCols = processContext.element();
+        if (strCols == null) {
+            LOG.error(
+                    "Row is null, expected a row with {} field(s)",
+                    this.schema.getFieldCount());
+            return;
+        }
+        if (this.schema.getFieldCount() != strCols.size()) {
+            LOG.error(
+                    "Row field count mismatch, expecting: {}, row: {}",
+                    this.schema.getFieldCount(),
+                    StringUtils.join(strCols.size(), ","));
+            return;
+        }
+        Row row = Row.withSchema(this.schema).addValues(strCols).build();
+        processContext.output(row);
+    }
 }

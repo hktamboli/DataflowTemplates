@@ -44,7 +44,7 @@ public class GoogleToNeo4jTest {
     providerImpl = ProviderFactory.of(jobSpec.getSourceList().get(0).getSourceType());
     optionsParams = new OptionsParams();
     optionsParams.overlayTokens("{\"limit\":7}");
-    providerImpl.configure(optionsParams, jobSpec);
+    providerImpl.configure(optionsParams);
   }
 
   @Test

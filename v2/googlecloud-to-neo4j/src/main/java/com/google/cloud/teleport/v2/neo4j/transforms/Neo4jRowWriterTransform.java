@@ -18,16 +18,13 @@ package com.google.cloud.teleport.v2.neo4j.transforms;
 import com.google.cloud.teleport.v2.neo4j.database.CypherGenerator;
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
 import com.google.cloud.teleport.v2.neo4j.model.connection.ConnectionParams;
-import com.google.cloud.teleport.v2.neo4j.model.enums.TargetType;
-import com.google.cloud.teleport.v2.neo4j.model.job.Config;
-import com.google.cloud.teleport.v2.neo4j.model.job.JobSpec;
-import com.google.cloud.teleport.v2.neo4j.model.job.Source;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
 import com.google.cloud.teleport.v2.neo4j.telemetry.Neo4jTelemetry;
 import com.google.cloud.teleport.v2.neo4j.telemetry.ReportedSourceType;
 import com.google.cloud.teleport.v2.neo4j.utils.DataCastingUtils;
 import com.google.cloud.teleport.v2.neo4j.utils.SerializableSupplier;
 import com.google.common.annotations.VisibleForTesting;
+
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.apache.beam.sdk.transforms.GroupByKey;
@@ -38,26 +35,52 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.neo4j.driver.TransactionConfig;
+import org.neo4j.importer.v1.Configuration;
+import org.neo4j.importer.v1.ImportSpecification;
+import org.neo4j.importer.v1.sources.Source;
+import org.neo4j.importer.v1.targets.CustomQueryTarget;
+import org.neo4j.importer.v1.targets.EntityTarget;
+import org.neo4j.importer.v1.targets.Target;
+import org.neo4j.importer.v1.targets.TargetType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Neo4j write transformation. */
 public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PCollection<Row>> {
+  private static final String NODE_BATCH_SIZE_SETTING = "node_target_batch_size";
+  private static final String LEGACY_NODE_BATCH_SIZE_SETTING = "node_write_batch_size";
+  private static final Integer DEFAULT_NODE_BATCH_SIZE = 5000;
+  private static final String RELATIONSHIP_BATCH_SIZE_SETTING = "relationship_target_batch_size";
+  private static final String LEGACY_RELATIONSHIP_BATCH_SIZE_SETTING = "edge_write_batch_size";
+  private static final Integer DEFAULT_RELATIONSHIP_BATCH_SIZE = 1000;
+  private static final String QUERY_BATCH_SIZE_SETTING = "query_target_batch_size";
+  private static final String LEGACY_QUERY_BATCH_SIZE_SETTING = "custom_query_batch_size";
+  private static final Integer DEFAULT_QUERY_BATCH_SIZE = 1000;
+
+  private static final String NODE_PARALLELISM_SETTING = "node_target_parallelism";
+  private static final String LEGACY_NODE_PARALLELISM_SETTING = "node_write_parallelism";
+  private static final Integer DEFAULT_NODE_PARALLELISM_FACTOR = 5;
+  private static final String RELATIONSHIP_PARALLELISM_SETTING = "relationship_target_parallelism";
+  private static final String LEGACY_RELATIONSHIP_PARALLELISM_SETTING = "edge_write_parallelism";
+  private static final Integer DEFAULT_RELATIONSHIP_PARALLELISM_FACTOR = 1;
+  private static final String QUERY_PARALLELISM_SETTING = "query_target_parallelism";
+  private static final String LEGACY_QUERY_PARALLELISM_SETTING = "custom_query_parallelism";
+  private static final Integer DEFAULT_QUERY_PARALLELISM_FACTOR = 1;
 
   private static final Logger LOG = LoggerFactory.getLogger(Neo4jRowWriterTransform.class);
-  private final JobSpec jobSpec;
+  private final ImportSpecification importSpecification;
   private final Target target;
   private final SerializableSupplier<Neo4jConnection> connectionSupplier;
 
   public Neo4jRowWriterTransform(
-      JobSpec jobSpec, ConnectionParams neoConnection, String templateVersion, Target target) {
-    this(jobSpec, target, () -> new Neo4jConnection(neoConnection, templateVersion));
+          ImportSpecification importSpecification, ConnectionParams neoConnection, String templateVersion, Target target) {
+    this(importSpecification, target, () -> new Neo4jConnection(neoConnection, templateVersion));
   }
 
   @VisibleForTesting
   Neo4jRowWriterTransform(
-      JobSpec jobSpec, Target target, SerializableSupplier<Neo4jConnection> connectionSupplier) {
-    this.jobSpec = jobSpec;
+          ImportSpecification importSpecification, Target target, SerializableSupplier<Neo4jConnection> connectionSupplier) {
+    this.importSpecification = importSpecification;
     this.target = target;
     this.connectionSupplier = connectionSupplier;
   }
@@ -65,33 +88,15 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
   @NonNull
   @Override
   public PCollection<Row> expand(@NonNull PCollection<Row> input) {
-    TargetType targetType = target.getType();
+    var targetType = target.getTargetType();
     ReportedSourceType reportedSourceType = determineReportedSourceType();
-    if (targetType != TargetType.custom_query) {
+    if (targetType == TargetType.NODE || targetType == TargetType.RELATIONSHIP) {
       createIndicesAndConstraints(reportedSourceType);
     }
 
-    Config config = jobSpec.getConfig();
-    int batchSize;
-    int parallelism;
-    switch (targetType) {
-      case node:
-        batchSize = config.getNodeBatchSize();
-        parallelism = config.getNodeParallelism();
-        break;
-      case edge:
-        batchSize = config.getEdgeBatchSize();
-        parallelism = config.getEdgeParallelism();
-        break;
-      case custom_query:
-        batchSize = config.getCustomQueryBatchSize();
-        parallelism = config.getCustomQueryParallelism();
-        break;
-      default:
-        throw new IllegalStateException(String.format("Unsupported target type: %s", targetType));
-    }
+    Configuration config = importSpecification.getConfiguration();
 
-    Neo4jBlockingUnwindFn neo4jUnwindFn =
+      Neo4jBlockingUnwindFn neo4jUnwindFn =
         new Neo4jBlockingUnwindFn(
             reportedSourceType,
             targetType,
@@ -102,16 +107,16 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
             connectionSupplier);
 
     return input
-        .apply("Create KV pairs", CreateKvTransform.of(parallelism))
+        .apply("Create KV pairs", CreateKvTransform.of(parallelismFactor(targetType, config)))
         .apply("Group by keys", GroupByKey.create())
-        .apply("Split into batches", ParDo.of(SplitIntoBatches.of(batchSize)))
+        .apply("Split into batches", ParDo.of(SplitIntoBatches.of(batchSize(targetType, config))))
         .apply(target.getSequence() + ": Neo4j write " + target.getName(), ParDo.of(neo4jUnwindFn))
         .setRowSchema(input.getSchema());
   }
 
   private ReportedSourceType determineReportedSourceType() {
     String sourceName = target.getSource();
-    Source source = jobSpec.getSources().get(sourceName);
+    Source source = importSpecification.findSourceByName(sourceName);
     return ReportedSourceType.reportedSourceTypeOf(source);
   }
 
@@ -135,7 +140,7 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
                               "source",
                               reportedSourceType.format(),
                               "target-type",
-                              target.getType().name(),
+                              target.getTargetType().name().toLowerCase(Locale.ROOT),
                               "step",
                               "init-schema")))
                   .build();
@@ -148,21 +153,55 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
   }
 
   private String getCypherQuery() {
-    if (target.getType() == TargetType.custom_query) {
-      String cypher = target.getCustomQuery();
+    TargetType targetType = target.getTargetType();
+    if (targetType == TargetType.QUERY) {
+      String cypher = ((CustomQueryTarget) target).getQuery();
       LOG.info("Custom cypher query: {}", cypher);
       return cypher;
     }
-    String unwindCypher = CypherGenerator.getUnwindCreateCypher(target);
+    if (targetType != TargetType.NODE && targetType != TargetType.RELATIONSHIP) {
+      throw new RuntimeException(String.format("Unsupported target type: %s", targetType));
+    }
+    String unwindCypher = CypherGenerator.getImportStatement(importSpecification, (EntityTarget) target);
     LOG.info("Unwind cypher: {}", unwindCypher);
     return unwindCypher;
   }
 
   private Set<String> generateIndexAndConstraints() {
-    return CypherGenerator.getIndexAndConstraintsCypherStatements(target);
+    TargetType targetType = target.getTargetType();
+    if (targetType != TargetType.NODE && targetType != TargetType.RELATIONSHIP) {
+      throw new RuntimeException(String.format("Unsupported target type: %s", targetType));
+    }
+    return CypherGenerator.getSchemaStatements((EntityTarget) target);
   }
 
   private SerializableFunction<Row, Map<String, Object>> getRowCastingFunction() {
     return (row) -> DataCastingUtils.rowToNeo4jDataMap(row, target);
+  }
+
+  private static int batchSize(TargetType targetType, Configuration config) {
+    switch (targetType) {
+      case NODE:
+        return config.get(Integer.class, NODE_BATCH_SIZE_SETTING, LEGACY_NODE_BATCH_SIZE_SETTING).orElse(DEFAULT_NODE_BATCH_SIZE);
+      case RELATIONSHIP:
+        return config.get(Integer.class, RELATIONSHIP_BATCH_SIZE_SETTING, LEGACY_RELATIONSHIP_BATCH_SIZE_SETTING).orElse(DEFAULT_RELATIONSHIP_BATCH_SIZE);
+      case QUERY:
+        return config.get(Integer.class, QUERY_BATCH_SIZE_SETTING, LEGACY_QUERY_BATCH_SIZE_SETTING).orElse(DEFAULT_QUERY_BATCH_SIZE);
+      default:
+        throw new IllegalStateException(String.format("Unsupported target type: %s", targetType));
+    }
+  }
+
+  private static int parallelismFactor(TargetType targetType, Configuration config) {
+    switch (targetType) {
+      case NODE:
+        return config.get(Integer.class, NODE_PARALLELISM_SETTING, LEGACY_NODE_PARALLELISM_SETTING).orElse(DEFAULT_NODE_PARALLELISM_FACTOR);
+      case RELATIONSHIP:
+        return config.get(Integer.class, RELATIONSHIP_PARALLELISM_SETTING, LEGACY_RELATIONSHIP_PARALLELISM_SETTING).orElse(DEFAULT_RELATIONSHIP_PARALLELISM_FACTOR);
+      case QUERY:
+        return config.get(Integer.class, QUERY_PARALLELISM_SETTING, LEGACY_QUERY_PARALLELISM_SETTING).orElse(DEFAULT_QUERY_PARALLELISM_FACTOR);
+      default:
+        throw new IllegalStateException(String.format("Unsupported target type: %s", targetType));
+    }
   }
 }

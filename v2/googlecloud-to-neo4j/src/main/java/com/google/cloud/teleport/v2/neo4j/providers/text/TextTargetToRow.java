@@ -41,28 +41,28 @@ import org.slf4j.LoggerFactory;
 public class TextTargetToRow extends PTransform<PBegin, PCollection<Row>> {
 
   private static final Logger LOG = LoggerFactory.getLogger(TextTargetToRow.class);
-  TargetQuerySpec targetQuerySpec;
+  TargetQuerySpec target;
   OptionsParams optionsParams;
 
   public TextTargetToRow(OptionsParams optionsParams, TargetQuerySpec targetQuerySpec) {
     this.optionsParams = optionsParams;
-    this.targetQuerySpec = targetQuerySpec;
+    this.target = targetQuerySpec.getTarget();
   }
 
   @Override
   public PCollection<Row> expand(PBegin input) {
 
-    PCollection<Row> sourceBeamRows = targetQuerySpec.getNullableSourceRows();
-    Schema sourceSchema = targetQuerySpec.getSourceBeamSchema();
+    PCollection<Row> sourceBeamRows = target.getNullableSourceRows();
+    Schema sourceSchema = target.getSourceBeamSchema();
     Set<String> sourceFieldSet = ModelUtils.getBeamFieldSet(sourceSchema);
 
-    Target target = targetQuerySpec.getTarget();
+    Target target = this.target.getTarget();
     Schema targetSchema = BeamUtils.toBeamSchema(target);
     DoFn<Row, Row> castToTargetRow = new CastExpandTargetRowFn(target, targetSchema);
 
     // conditionally apply sql to rows.
     if (ModelUtils.targetHasTransforms(target)) {
-      String sql = getRewritten(ModelUtils.getTargetSql(sourceFieldSet, targetQuerySpec, false));
+      String sql = getRewritten(ModelUtils.getTargetSql(this.target.getTarget(), sourceFieldSet, false));
       LOG.info("Target schema: {}", targetSchema);
       LOG.info("Executing SQL on PCOLLECTION: {}", sql);
       PCollection<Row> sqlDataRow =
