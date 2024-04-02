@@ -103,14 +103,25 @@ public class CypherGenerator {
     private static Set<String> getNodeSchemaStatements(NodeTarget target) {
         NodeSchema schema = target.getSchema();
         Set<String> statements = new LinkedHashSet<>();
-        // TODO: node type constraints
-        for (var constraint : schema.getNodeKeyConstraints()) {
+
+        Map<String, PropertyType> types = indexPropertyTypes(target.getProperties());
+        for (var constraint : schema.getTypeConstraints()) {
+            String property = constraint.getProperty();
+            if (!types.containsKey(property)) {
+                throw new IllegalArgumentException(String.format(
+                        "Cannot create type constraint for property \"%s\" of target \"%s\", its mapping does not define a property type",
+                        property, target.getName()
+                ));
+            }
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(constraint.getLabel()) + ") REQUIRE " + CypherPatterns.escape(property) + " IS :: " + CypherPatterns.propertyType(types.get(property)));
+        }
+        for (var constraint : schema.getKeyConstraints()) {
             statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(constraint.getLabel()) + ") REQUIRE " + CypherPatterns.propertyList("n", constraint.getProperties()) + " IS NODE KEY " + CypherPatterns.schemaOptions(constraint.getOptions()));
         }
-        for (var constraint : schema.getNodeUniqueConstraints()) {
+        for (var constraint : schema.getUniqueConstraints()) {
             statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(constraint.getLabel()) + ") REQUIRE " + CypherPatterns.propertyList("n", constraint.getProperties()) + " IS UNIQUE " + CypherPatterns.schemaOptions(constraint.getOptions()));
         }
-        for (var constraint : schema.getNodeExistenceConstraints()) {
+        for (var constraint : schema.getExistenceConstraints()) {
             statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR (n:" + CypherPatterns.escape(constraint.getLabel()) + ") REQUIRE n." + CypherPatterns.escape(constraint.getProperty()) + " IS NOT NULL");
         }
         for (var index : schema.getRangeIndexes()) {
@@ -136,22 +147,25 @@ public class CypherGenerator {
         RelationshipSchema schema = target.getSchema();
         Set<String> statements = new LinkedHashSet<>();
         String escapedType = CypherPatterns.escape(target.getType());
-        if (schema.isEnableTypeConstraints()) {
-            target.getProperties()
-                    .stream()
-                    .filter(mapping -> mapping.getTargetPropertyType() != null)
-                    .collect(toMap(PropertyMapping::getTargetProperty, PropertyMapping::getTargetPropertyType))
-                    .forEach((property, propertyType) -> {
-                        statements.add("CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:" + escapedType + "]-() REQUIRE r." + CypherPatterns.escape(property) + " IS :: " + CypherPatterns.propertyType(propertyType));
-                    });
+
+        Map<String, PropertyType> types = indexPropertyTypes(target.getProperties());
+        for (var constraint : schema.getTypeConstraints()) {
+            String property = constraint.getProperty();
+            if (!types.containsKey(property)) {
+                throw new IllegalArgumentException(String.format(
+                        "Cannot create type constraint for property \"%s\" of target \"%s\", its mapping does not define a property type",
+                        property, target.getName()
+                ));
+            }
+            statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR ()-[r:" + escapedType + "]-() REQUIRE " + CypherPatterns.escape(property) + " IS :: " + CypherPatterns.propertyType(types.get(property)));
         }
-        for (var constraint : schema.getRelationshipKeyConstraints()) {
+        for (var constraint : schema.getKeyConstraints()) {
             statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR ()-[r:" + escapedType + "]-() REQUIRE " + CypherPatterns.propertyList("r", constraint.getProperties()) + " IS NODE KEY " + CypherPatterns.schemaOptions(constraint.getOptions()));
         }
-        for (var constraint : schema.getRelationshipUniqueConstraints()) {
+        for (var constraint : schema.getUniqueConstraints()) {
             statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR ()-[r:" + escapedType + "]-() REQUIRE " + CypherPatterns.propertyList("r", constraint.getProperties()) + " IS UNIQUE " + CypherPatterns.schemaOptions(constraint.getOptions()));
         }
-        for (var constraint : schema.getRelationshipExistenceConstraints()) {
+        for (var constraint : schema.getExistenceConstraints()) {
             statements.add("CREATE CONSTRAINT " + constraint.getName() + " IF NOT EXISTS FOR ()-[r:" + escapedType + "]-() REQUIRE r." + CypherPatterns.escape(constraint.getProperty()) + " IS NOT NULL");
         }
         for (var index : schema.getRangeIndexes()) {
@@ -177,6 +191,13 @@ public class CypherGenerator {
                 .filter(target -> reference.equals(target.getName()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(String.format("Could not resolve node target reference %s", reference)));
+    }
+
+    private static Map<String, PropertyType> indexPropertyTypes(List<PropertyMapping> target) {
+        return target
+                .stream()
+                .filter(mapping -> mapping.getTargetPropertyType() != null)
+                .collect(toMap(PropertyMapping::getTargetProperty, PropertyMapping::getTargetPropertyType));
     }
 }
 
