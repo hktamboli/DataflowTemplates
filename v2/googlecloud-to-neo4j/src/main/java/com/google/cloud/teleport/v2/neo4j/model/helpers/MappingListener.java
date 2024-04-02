@@ -16,6 +16,8 @@
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -43,6 +45,56 @@ interface MappingListener {
   default void enterString(String value) {}
 
   default void exitString() {}
+}
+
+class MappingListeners implements MappingListener {
+    private final Collection<MappingListener> listeners;
+
+    private MappingListeners(Collection<MappingListener> listeners) {
+        this.listeners = listeners;
+    }
+
+    public static MappingListeners of(MappingListener first, MappingListener... rest) {
+      var listeners = new ArrayList<MappingListener>();
+      listeners.add(first);
+      Collections.addAll(listeners, rest);
+      return new MappingListeners(listeners);
+    }
+
+  @Override
+  public void enterArray() {
+    listeners.forEach(MappingListener::enterArray);
+  }
+
+  @Override
+  public void exitArray() {
+    listeners.forEach(MappingListener::exitArray);
+  }
+
+  @Override
+  public void enterObject() {
+    listeners.forEach(MappingListener::enterObject);
+  }
+
+  @Override
+  public void enterObjectEntry(String field, String property) {
+    listeners.forEach(listener -> listener.enterObjectEntry(field, property));
+  }
+
+  @Override
+  public void exitObject() {
+    listeners.forEach(MappingListener::exitObject);
+  }
+
+  @Override
+  public void enterString(String value) {
+    listeners.forEach(listener -> listener.enterString(value));
+  }
+
+  @Override
+  public void exitString() {
+    listeners.forEach(MappingListener::exitString);
+  }
 }
 
 class PropertyMappingListener implements MappingListener {
