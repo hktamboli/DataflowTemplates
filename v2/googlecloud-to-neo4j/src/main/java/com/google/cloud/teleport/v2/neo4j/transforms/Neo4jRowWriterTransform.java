@@ -18,12 +18,12 @@ package com.google.cloud.teleport.v2.neo4j.transforms;
 import com.google.cloud.teleport.v2.neo4j.database.CypherGenerator;
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
 import com.google.cloud.teleport.v2.neo4j.model.connection.ConnectionParams;
+import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetSequence;
 import com.google.cloud.teleport.v2.neo4j.telemetry.Neo4jTelemetry;
 import com.google.cloud.teleport.v2.neo4j.telemetry.ReportedSourceType;
 import com.google.cloud.teleport.v2.neo4j.utils.DataCastingUtils;
 import com.google.cloud.teleport.v2.neo4j.utils.SerializableSupplier;
 import com.google.common.annotations.VisibleForTesting;
-
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -71,18 +71,31 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
   private final ImportSpecification importSpecification;
   private final Target target;
   private final SerializableSupplier<Neo4jConnection> connectionSupplier;
+  private final TargetSequence targetSequence;
 
   public Neo4jRowWriterTransform(
-          ImportSpecification importSpecification, ConnectionParams neoConnection, String templateVersion, Target target) {
-    this(importSpecification, target, () -> new Neo4jConnection(neoConnection, templateVersion));
+      ImportSpecification importSpecification,
+      ConnectionParams neoConnection,
+      String templateVersion,
+      TargetSequence targetSequence,
+      Target target) {
+    this(
+        importSpecification,
+        targetSequence,
+        target,
+        () -> new Neo4jConnection(neoConnection, templateVersion));
   }
 
   @VisibleForTesting
   Neo4jRowWriterTransform(
-          ImportSpecification importSpecification, Target target, SerializableSupplier<Neo4jConnection> connectionSupplier) {
+      ImportSpecification importSpecification,
+      TargetSequence targetSequence,
+      Target target,
+      SerializableSupplier<Neo4jConnection> connectionSupplier) {
     this.importSpecification = importSpecification;
     this.target = target;
     this.connectionSupplier = connectionSupplier;
+    this.targetSequence = targetSequence;
   }
 
   @NonNull
@@ -96,7 +109,7 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
 
     Configuration config = importSpecification.getConfiguration();
 
-      Neo4jBlockingUnwindFn neo4jUnwindFn =
+    Neo4jBlockingUnwindFn neo4jUnwindFn =
         new Neo4jBlockingUnwindFn(
             reportedSourceType,
             targetType,
@@ -110,7 +123,9 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
         .apply("Create KV pairs", CreateKvTransform.of(parallelismFactor(targetType, config)))
         .apply("Group by keys", GroupByKey.create())
         .apply("Split into batches", ParDo.of(SplitIntoBatches.of(batchSize(targetType, config))))
-        .apply(target.getSequence() + ": Neo4j write " + target.getName(), ParDo.of(neo4jUnwindFn))
+        .apply(
+            targetSequence.getSequenceNumber(target) + ": Neo4j write " + target.getName(),
+            ParDo.of(neo4jUnwindFn))
         .setRowSchema(input.getSchema());
   }
 
@@ -144,7 +159,7 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
                               "step",
                               "init-schema")))
                   .build();
-          neo4jDirectConnect.executeCypher(cypher, txConfig);
+          neo4jDirectConnect.runAutocommit(cypher, txConfig);
         } catch (Exception e) {
           LOG.error("Error executing cypher: {}, {}", cypher, e.getMessage());
         }
@@ -162,7 +177,8 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
     if (targetType != TargetType.NODE && targetType != TargetType.RELATIONSHIP) {
       throw new RuntimeException(String.format("Unsupported target type: %s", targetType));
     }
-    String unwindCypher = CypherGenerator.getImportStatement(importSpecification, (EntityTarget) target);
+    String unwindCypher =
+        CypherGenerator.getImportStatement(importSpecification, (EntityTarget) target);
     LOG.info("Unwind cypher: {}", unwindCypher);
     return unwindCypher;
   }
@@ -182,11 +198,20 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
   private static int batchSize(TargetType targetType, Configuration config) {
     switch (targetType) {
       case NODE:
-        return config.get(Integer.class, NODE_BATCH_SIZE_SETTING, LEGACY_NODE_BATCH_SIZE_SETTING).orElse(DEFAULT_NODE_BATCH_SIZE);
+        return config
+            .get(Integer.class, NODE_BATCH_SIZE_SETTING, LEGACY_NODE_BATCH_SIZE_SETTING)
+            .orElse(DEFAULT_NODE_BATCH_SIZE);
       case RELATIONSHIP:
-        return config.get(Integer.class, RELATIONSHIP_BATCH_SIZE_SETTING, LEGACY_RELATIONSHIP_BATCH_SIZE_SETTING).orElse(DEFAULT_RELATIONSHIP_BATCH_SIZE);
+        return config
+            .get(
+                Integer.class,
+                RELATIONSHIP_BATCH_SIZE_SETTING,
+                LEGACY_RELATIONSHIP_BATCH_SIZE_SETTING)
+            .orElse(DEFAULT_RELATIONSHIP_BATCH_SIZE);
       case QUERY:
-        return config.get(Integer.class, QUERY_BATCH_SIZE_SETTING, LEGACY_QUERY_BATCH_SIZE_SETTING).orElse(DEFAULT_QUERY_BATCH_SIZE);
+        return config
+            .get(Integer.class, QUERY_BATCH_SIZE_SETTING, LEGACY_QUERY_BATCH_SIZE_SETTING)
+            .orElse(DEFAULT_QUERY_BATCH_SIZE);
       default:
         throw new IllegalStateException(String.format("Unsupported target type: %s", targetType));
     }
@@ -195,11 +220,20 @@ public class Neo4jRowWriterTransform extends PTransform<PCollection<Row>, PColle
   private static int parallelismFactor(TargetType targetType, Configuration config) {
     switch (targetType) {
       case NODE:
-        return config.get(Integer.class, NODE_PARALLELISM_SETTING, LEGACY_NODE_PARALLELISM_SETTING).orElse(DEFAULT_NODE_PARALLELISM_FACTOR);
+        return config
+            .get(Integer.class, NODE_PARALLELISM_SETTING, LEGACY_NODE_PARALLELISM_SETTING)
+            .orElse(DEFAULT_NODE_PARALLELISM_FACTOR);
       case RELATIONSHIP:
-        return config.get(Integer.class, RELATIONSHIP_PARALLELISM_SETTING, LEGACY_RELATIONSHIP_PARALLELISM_SETTING).orElse(DEFAULT_RELATIONSHIP_PARALLELISM_FACTOR);
+        return config
+            .get(
+                Integer.class,
+                RELATIONSHIP_PARALLELISM_SETTING,
+                LEGACY_RELATIONSHIP_PARALLELISM_SETTING)
+            .orElse(DEFAULT_RELATIONSHIP_PARALLELISM_FACTOR);
       case QUERY:
-        return config.get(Integer.class, QUERY_PARALLELISM_SETTING, LEGACY_QUERY_PARALLELISM_SETTING).orElse(DEFAULT_QUERY_PARALLELISM_FACTOR);
+        return config
+            .get(Integer.class, QUERY_PARALLELISM_SETTING, LEGACY_QUERY_PARALLELISM_SETTING)
+            .orElse(DEFAULT_QUERY_PARALLELISM_FACTOR);
       default:
         throw new IllegalStateException(String.format("Unsupported target type: %s", targetType));
     }

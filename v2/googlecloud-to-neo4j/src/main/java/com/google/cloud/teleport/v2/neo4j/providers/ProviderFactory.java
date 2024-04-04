@@ -15,6 +15,7 @@
  */
 package com.google.cloud.teleport.v2.neo4j.providers;
 
+import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetSequence;
 import com.google.cloud.teleport.v2.neo4j.providers.bigquery.BigQueryImpl;
 import com.google.cloud.teleport.v2.neo4j.providers.text.TextImpl;
 import org.neo4j.importer.v1.sources.BigQuerySource;
@@ -27,15 +28,15 @@ import org.neo4j.importer.v1.sources.TextSource;
  */
 public class ProviderFactory {
 
-    public static Provider<? extends Source> of(Source source) {
-        switch (source.getType()) {
-            case BIGQUERY:
-                return new BigQueryImpl((BigQuerySource) source);
-            case TEXT:
-                return new TextImpl((TextSource) source);
-            case JDBC:
-            default:
-                throw new RuntimeException("Unsupported source type: " + source);
-        }
+  public static Provider of(Source source, TargetSequence targetSequence) {
+    switch (source.getType()) {
+      case BIGQUERY:
+        return new BigQueryImpl((BigQuerySource) source, targetSequence);
+      case TEXT:
+        return new TextImpl((TextSource) source, targetSequence);
+      case JDBC:
+      default:
+        throw new RuntimeException("Unsupported source type: " + source);
     }
+  }
 }

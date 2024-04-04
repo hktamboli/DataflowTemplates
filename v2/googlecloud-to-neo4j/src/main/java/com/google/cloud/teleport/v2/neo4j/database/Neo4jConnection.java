@@ -93,7 +93,7 @@ public class Neo4jConnection implements AutoCloseable, Serializable {
           "Executing CREATE OR REPLACE DATABASE Cypher query: {} against database {}",
           cypher,
           database);
-      executeCypher(
+      runAutocommit(
           cypher, Map.of("db", database), databaseResetMetadata("create-replace-database"));
     } catch (Exception ex) {
       fallbackResetDatabase(ex);
@@ -105,8 +105,8 @@ public class Neo4jConnection implements AutoCloseable, Serializable {
    *
    * @param cypher statement
    */
-  public void executeCypher(String cypher, TransactionConfig transactionConfig) {
-    executeCypher(cypher, Collections.emptyMap(), transactionConfig);
+  public void runAutocommit(String cypher, TransactionConfig transactionConfig) {
+    runAutocommit(cypher, Collections.emptyMap(), transactionConfig);
   }
 
   /**
@@ -114,7 +114,7 @@ public class Neo4jConnection implements AutoCloseable, Serializable {
    *
    * @param cypher statement
    */
-  public void executeCypher(
+  public void runAutocommit(
       String cypher, Map<String, Object> parameters, TransactionConfig transactionConfig) {
     try (Session session = getSession()) {
       session.run(cypher, parameters, transactionConfig).consume();
@@ -149,10 +149,10 @@ public class Neo4jConnection implements AutoCloseable, Serializable {
     try {
       String ddeCypher = "MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS";
       LOG.info("Executing alternative delete Cypher query: {}", ddeCypher);
-      executeCypher(ddeCypher, databaseResetMetadata("cit-detach-delete"));
+      runAutocommit(ddeCypher, databaseResetMetadata("cit-detach-delete"));
       String constraintsDeleteCypher = "CALL apoc.schema.assert({}, {}, true)";
       LOG.info("Dropping indices & constraints with APOC: {}", constraintsDeleteCypher);
-      executeCypher(constraintsDeleteCypher, databaseResetMetadata("apoc-schema-assert"));
+      runAutocommit(constraintsDeleteCypher, databaseResetMetadata("apoc-schema-assert"));
     } catch (Exception exception) {
       exception.addSuppressed(initialException);
       LOG.error(

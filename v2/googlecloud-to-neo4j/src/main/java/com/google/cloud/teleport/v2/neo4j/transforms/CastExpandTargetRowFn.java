@@ -15,12 +15,12 @@
  */
 package com.google.cloud.teleport.v2.neo4j.transforms;
 
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
 import com.google.cloud.teleport.v2.neo4j.utils.DataCastingUtils;
 import java.util.List;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.Row;
+import org.neo4j.importer.v1.targets.Target;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,9 +46,9 @@ public class CastExpandTargetRowFn extends DoFn<Row, Row> {
           "Unable to parse line.  Expecting {} fields, found {}",
           targetSchema.getFieldCount(),
           castVals.size());
-    } else {
-      Row targetRow = Row.withSchema(targetSchema).attachValues(castVals);
-      processContext.output(targetRow);
+      return;
     }
+    Row targetRow = Row.withSchema(targetSchema).attachValues(castVals);
+    processContext.output(targetRow);
   }
 }

@@ -48,18 +48,18 @@ interface MappingListener {
 }
 
 class MappingListeners implements MappingListener {
-    private final Collection<MappingListener> listeners;
+  private final Collection<MappingListener> listeners;
 
-    private MappingListeners(Collection<MappingListener> listeners) {
-        this.listeners = listeners;
-    }
+  private MappingListeners(Collection<MappingListener> listeners) {
+    this.listeners = listeners;
+  }
 
-    public static MappingListeners of(MappingListener first, MappingListener... rest) {
-      var listeners = new ArrayList<MappingListener>();
-      listeners.add(first);
-      Collections.addAll(listeners, rest);
-      return new MappingListeners(listeners);
-    }
+  public static MappingListeners of(MappingListener first, MappingListener... rest) {
+    var listeners = new ArrayList<MappingListener>();
+    listeners.add(first);
+    Collections.addAll(listeners, rest);
+    return new MappingListeners(listeners);
+  }
 
   @Override
   public void enterArray() {
@@ -122,7 +122,7 @@ class PropertyMappingListener implements MappingListener {
 
 /**
  * This listener groups all properties together under the same key constraint Because of the legacy
- * spec ambiguity, there as many created constraints as node target labels
+ * spec ambiguity, there as many created constraints as node target labels.
  */
 class SingleNodeKeyConstraintListener implements MappingListener {
   private final String targetName;
@@ -186,7 +186,7 @@ class SingleNodeKeyConstraintListener implements MappingListener {
   }
 }
 
-/** This listener groups all properties together under the same key constraint */
+/** This listener groups all properties together under the same key constraint. */
 class SingleRelationshipKeyConstraintListener implements MappingListener {
   private final String targetName;
   private final String type;
@@ -247,12 +247,13 @@ class SingleRelationshipKeyConstraintListener implements MappingListener {
 }
 
 /**
- * This listener base implementation groups properties for node constraints as follows: - a
- * JSONArray mapping produces as many node constraints as it contains values (per node target label)
+ * This listener base implementation groups properties for node constraints as follows: <br>
+ * - a JSONArray mapping produces as many node constraints as it contains values (per node target
+ * label) <br>
  * - a JSONObject mapping produces a single node constraint (per node target label) with all the
- * properties defined as values - a string mapping produces a single-property single node constraint
- * (per node target label) Because of the legacy spec ambiguity, there as many created constraints
- * as node target labels
+ * properties defined as values <br>
+ * - a string mapping produces a single-property single node constraint (per node target label)
+ * Because of the legacy spec ambiguity, there as many created constraints as node target labels.
  */
 abstract class CompoundNodeSchemaListener<T> implements MappingListener {
 
@@ -299,12 +300,13 @@ abstract class CompoundNodeSchemaListener<T> implements MappingListener {
 }
 
 /**
- * This listener base implementation groups properties for node constraints as follows: - a
- * JSONArray mapping produces as many node constraints as it contains values (per node target label)
+ * This listener base implementation groups properties for node constraints as follows. <br>
+ * - a JSONArray mapping produces as many node constraints as it contains values (per node target
+ * label) <br>
  * - a JSONObject mapping produces a single node constraint (per node target label) with all the
- * properties defined as values - a string mapping produces a single-property single node constraint
- * (per node target label) Because of the legacy spec ambiguity, there as many created constraints
- * as node target labels
+ * properties defined as values <br>
+ * - a string mapping produces a single-property single node constraint (per node target label)
+ * Because of the legacy spec ambiguity, there as many created constraints as node target labels
  */
 abstract class CompoundRelationshipSchemaListener<T> implements MappingListener {
 

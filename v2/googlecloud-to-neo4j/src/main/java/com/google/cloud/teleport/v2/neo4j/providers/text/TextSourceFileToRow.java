@@ -16,6 +16,8 @@
 package com.google.cloud.teleport.v2.neo4j.providers.text;
 
 import com.google.cloud.teleport.v2.neo4j.model.helpers.CsvSources;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.Create;
@@ -32,20 +34,17 @@ import org.neo4j.importer.v1.sources.TextSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 /** Transform that reads data from a source file. */
 public class TextSourceFileToRow extends PTransform<PBegin, PCollection<Row>> {
 
   private static final Logger LOG = LoggerFactory.getLogger(TextSourceFileToRow.class);
-    private final TextSource source;
-    private final Schema schema;
+  private final TextSource source;
+  private final Schema schema;
 
-    public TextSourceFileToRow(TextSource source, Schema schema) {
-        this.source = source;
-        this.schema = schema;
-    }
+  public TextSourceFileToRow(TextSource source, Schema schema) {
+    this.source = source;
+    this.schema = schema;
+  }
 
   @Override
   public PCollection<Row> expand(PBegin input) {
@@ -53,17 +52,23 @@ public class TextSourceFileToRow extends PTransform<PBegin, PCollection<Row>> {
       ExternalTextSource externalTextSource = (ExternalTextSource) source;
       List<String> urls = externalTextSource.getUrls();
 
-      return PCollectionList.of(urls.stream()
-              .map((url) -> input
-                      .apply(
-                              "Read " + source.getName() + " data: " + url, TextIO.read().from(url))
-                      .apply(
-                              "Parse lines into string columns.",
-                              ParDo.of(new LineToRowFn(schema, CsvSources.toCsvFormat(externalTextSource.getFormat()))))
-                      .setRowSchema(schema))
-              .collect(Collectors.toList()))
-              .apply("Combine all " + source.getName() + " data", Flatten.pCollections());
-
+      return PCollectionList.of(
+              urls.stream()
+                  .map(
+                      (url) ->
+                          input
+                              .apply(
+                                  "Read " + source.getName() + " data: " + url,
+                                  TextIO.read().from(url))
+                              .apply(
+                                  "Parse lines into string columns.",
+                                  ParDo.of(
+                                      new LineToRowFn(
+                                          schema,
+                                          CsvSources.toCsvFormat(externalTextSource.getFormat()))))
+                              .setRowSchema(schema))
+                  .collect(Collectors.toList()))
+          .apply("Combine all " + source.getName() + " data", Flatten.pCollections());
     }
     if (source instanceof InlineTextSource) {
       InlineTextSource inlineTextSource = (InlineTextSource) source;
@@ -71,10 +76,9 @@ public class TextSourceFileToRow extends PTransform<PBegin, PCollection<Row>> {
       LOG.info("Processing {} rows inline.", rows.size());
       return input
           .apply("Ingest inline dataset: " + source.getName(), Create.of(rows))
-          .apply(
-              "Parse lines into string columns.", ParDo.of(new ListOfStringToRowFn(schema)))
+          .apply("Parse lines into string columns.", ParDo.of(new ListOfStringToRowFn(schema)))
           .setRowSchema(schema);
     }
-      throw new RuntimeException(String.format("Unsupported text source: %s", source.getClass()));
+    throw new RuntimeException(String.format("Unsupported text source: %s", source.getClass()));
   }
 }

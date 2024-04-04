@@ -17,7 +17,7 @@ package com.google.cloud.teleport.v2.neo4j.templates;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.cloud.teleport.v2.neo4j.model.job.JobSpec;
+import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetSequence;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import com.google.cloud.teleport.v2.neo4j.providers.Provider;
 import com.google.cloud.teleport.v2.neo4j.providers.ProviderFactory;
@@ -28,20 +28,24 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.neo4j.importer.v1.sources.InlineTextSource;
 
 /** Unit tests for {@link GoogleCloudToNeo4j}. */
 @RunWith(JUnit4.class)
 public class GoogleToNeo4jTest {
 
   private static Provider providerImpl;
-  private static JobSpec jobSpec;
   private static OptionsParams optionsParams;
 
   @BeforeClass
   public static void setUp() {
-    jobSpec =
-        new JobSpec(); // JobSpecMapper.fromUri("src/test/resources/testing-specs/text-northwind-jobspec.json");
-    providerImpl = ProviderFactory.of(jobSpec.getSourceList().get(0).getSourceType());
+    providerImpl =
+        ProviderFactory.of(
+            new InlineTextSource(
+                "a-text-source",
+                List.of(List.of("v1", "v2"), List.of("v3", "v4")),
+                List.of("column1", "column2")),
+            new TargetSequence());
     optionsParams = new OptionsParams();
     optionsParams.overlayTokens("{\"limit\":7}");
     providerImpl.configure(optionsParams);

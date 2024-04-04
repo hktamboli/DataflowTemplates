@@ -18,14 +18,13 @@ package com.google.cloud.teleport.v2.neo4j.providers.bigquery;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.SqlQuerySpec;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.SqlQuerySpec.SqlQuerySpecBuilder;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetQuerySpec;
+import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetSequence;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
 import com.google.cloud.teleport.v2.neo4j.providers.Provider;
 import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PBegin;
@@ -37,15 +36,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Provider implementation for reading and writing BigQuery. */
-public class BigQueryImpl implements Provider<BigQuerySource> {
+public class BigQueryImpl implements Provider {
 
   private static final Logger LOG = LoggerFactory.getLogger(BigQueryImpl.class);
-    private final BigQuerySource source;
+  private final BigQuerySource source;
+  private final TargetSequence targetSequence;
 
-    private OptionsParams optionsParams;
+  private OptionsParams optionsParams;
 
-  public BigQueryImpl(BigQuerySource source) {
-      this.source = source;
+  public BigQueryImpl(BigQuerySource source, TargetSequence targetSequence) {
+    this.source = source;
+    this.targetSequence = targetSequence;
   }
 
   @Override
@@ -71,7 +72,7 @@ public class BigQueryImpl implements Provider<BigQuerySource> {
   }
 
   @Override
-  public <T extends Target>  PTransform<PBegin, PCollection<Row>>  queryTargetBeamRows(TargetQuerySpec<T> targetQuerySpec) {
+  public PTransform<PBegin, PCollection<Row>> queryTargetBeamRows(TargetQuerySpec targetQuerySpec) {
     return new BqQueryToRow(getTargetQueryBeamSpec(targetQuerySpec));
   }
 
@@ -120,18 +121,18 @@ public class BigQueryImpl implements Provider<BigQuerySource> {
    *
    * @return helper object includes metadata and SQL
    */
-  private <T extends Target> SqlQuerySpec getTargetQueryBeamSpec(TargetQuerySpec<T> targetQuerySpec) {
+  private SqlQuerySpec getTargetQueryBeamSpec(TargetQuerySpec targetQuerySpec) {
     Set<String> sourceFieldSet = ModelUtils.getBeamFieldSet(targetQuerySpec.getSourceBeamSchema());
     String baseSql = getBaseQuery(source);
     String targetSpecificSql =
         ModelUtils.getTargetSql(targetQuerySpec.getTarget(), sourceFieldSet, true, baseSql);
     return new SqlQuerySpecBuilder()
         .readDescription(
-            targetQuerySpec.getTarget().getSequence()
+            targetSequence.getSequenceNumber(targetQuerySpec.getTarget())
                 + ": Read from BQ "
                 + targetQuerySpec.getTarget().getName())
         .castDescription(
-            targetQuerySpec.getTarget().getSequence()
+            targetSequence.getSequenceNumber(targetQuerySpec.getTarget())
                 + ": Cast to BeamRow "
                 + targetQuerySpec.getTarget().getName())
         .sql(targetSpecificSql)

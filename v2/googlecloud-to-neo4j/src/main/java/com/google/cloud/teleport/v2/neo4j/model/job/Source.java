@@ -16,13 +16,11 @@
 package com.google.cloud.teleport.v2.neo4j.model.job;
 
 import com.google.cloud.teleport.v2.neo4j.model.enums.SourceType;
-import com.google.cloud.teleport.v2.neo4j.utils.BeamUtils;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.beam.sdk.schemas.Schema;
 import org.apache.commons.csv.CSVFormat;
 
 /** Source query metadata. */
@@ -40,10 +38,6 @@ public class Source implements Serializable {
   private String[] fieldNames = new String[0];
   private Map<String, Integer> fieldPosByName = new HashMap<>();
   private List<List<Object>> inline = new ArrayList<>();
-
-  public Schema getTextFileSchema() {
-    return BeamUtils.textToBeamSchema(fieldNames);
-  }
 
   public SourceType getSourceType() {
     return sourceType;

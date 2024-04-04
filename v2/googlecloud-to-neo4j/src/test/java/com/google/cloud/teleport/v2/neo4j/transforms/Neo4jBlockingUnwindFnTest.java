@@ -23,7 +23,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
 import com.google.cloud.teleport.v2.neo4j.telemetry.ReportedSourceType;
 import com.google.cloud.teleport.v2.neo4j.utils.DataCastingUtils;
 import java.util.List;
@@ -34,12 +33,13 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.Row;
 import org.junit.Test;
 import org.neo4j.driver.TransactionConfig;
+import org.neo4j.importer.v1.targets.Target;
 import org.neo4j.importer.v1.targets.TargetType;
 
 public class Neo4jBlockingUnwindFnTest {
 
   @Test
-  public void sendsTransactionMetadata() {
+  public void sends_transaction_metadata() {
     Neo4jConnection connection = mock(Neo4jConnection.class);
     Neo4jBlockingUnwindFn batchImporter =
         new Neo4jBlockingUnwindFn(
@@ -55,7 +55,8 @@ public class Neo4jBlockingUnwindFnTest {
     batchImporter.processElement(aProcessContext());
 
     Map<String, String> expectedTxMetadata =
-        Map.of("sink", "neo4j", "source", "BigQuery", "target-type", "relationship", "step", "import");
+        Map.of(
+            "sink", "neo4j", "source", "BigQuery", "target-type", "relationship", "step", "import");
     TransactionConfig expectedTransactionConfig =
         TransactionConfig.builder()
             .withMetadata(Map.of("app", "dataflow", "metadata", expectedTxMetadata))

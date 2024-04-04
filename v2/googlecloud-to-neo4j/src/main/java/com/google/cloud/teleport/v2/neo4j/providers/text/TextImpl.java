@@ -15,14 +15,12 @@
  */
 package com.google.cloud.teleport.v2.neo4j.providers.text;
 
-import com.google.cloud.teleport.v2.neo4j.model.helpers.SourceQuerySpec;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetQuerySpec;
+import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetSequence;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
 import com.google.cloud.teleport.v2.neo4j.providers.Provider;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PBegin;
@@ -31,13 +29,15 @@ import org.apache.beam.sdk.values.Row;
 import org.neo4j.importer.v1.sources.TextSource;
 
 /** Provider implementation for reading and writing Text files. */
-public class TextImpl implements Provider<TextSource> {
+public class TextImpl implements Provider {
 
   private final TextSource source;
+  private final TargetSequence targetSequence;
   private OptionsParams optionsParams;
 
-  public TextImpl(TextSource source) {
+  public TextImpl(TextSource source, TargetSequence targetSequence) {
     this.source = source;
+    this.targetSequence = targetSequence;
   }
 
   @Override
@@ -63,8 +63,8 @@ public class TextImpl implements Provider<TextSource> {
   }
 
   @Override
-  public <T extends Target> PTransform<PBegin, PCollection<Row>> queryTargetBeamRows(TargetQuerySpec<T> targetQuerySpec) {
-    return new TextTargetToRow(optionsParams, targetQuerySpec);
+  public PTransform<PBegin, PCollection<Row>> queryTargetBeamRows(TargetQuerySpec targetQuerySpec) {
+    return new TextTargetToRow(optionsParams, targetSequence, targetQuerySpec);
   }
 
   @Override

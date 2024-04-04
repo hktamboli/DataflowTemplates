@@ -39,26 +39,26 @@ public class LineToRowFn extends DoFn<String, Row> {
 
   @ProcessElement
   public void processElement(ProcessContext processContext) {
-      String line = processContext.element();
-      // Note: parser must return objects
-      List<Object> strCols = TextParserUtils.parseDelimitedLine(csvFormat, line);
-      if (strCols.isEmpty()) {
-        LOG.error("Row was empty!");
-        return;
-      }
-      // If there are more defined fields than fields to map, error (message) out
-      if (this.schema.getFieldCount() > strCols.size()) {
-        LOG.error(
-            "Unable to parse line.  Expecting {} fields, found {}",
-            this.schema.getFieldCount(),
-            strCols.size());
-        return;
-      }
-      // truncate input column names to the number of defined field names
-      // this should in the future be moved into a method that
-      // extracts the matching columns from the given header name
-      strCols = strCols.subList(0, this.schema.getFieldCount());
-      Row row = Row.withSchema(this.schema).attachValues(strCols);
-      processContext.output(row);
+    String line = processContext.element();
+    // Note: parser must return objects
+    List<Object> strCols = TextParserUtils.parseDelimitedLine(csvFormat, line);
+    if (strCols.isEmpty()) {
+      LOG.error("Row was empty!");
+      return;
+    }
+    // If there are more defined fields than fields to map, error (message) out
+    if (this.schema.getFieldCount() > strCols.size()) {
+      LOG.error(
+          "Unable to parse line.  Expecting {} fields, found {}",
+          this.schema.getFieldCount(),
+          strCols.size());
+      return;
+    }
+    // truncate input column names to the number of defined field names
+    // this should in the future be moved into a method that
+    // extracts the matching columns from the given header name
+    strCols = strCols.subList(0, this.schema.getFieldCount());
+    Row row = Row.withSchema(this.schema).attachValues(strCols);
+    processContext.output(row);
   }
 }

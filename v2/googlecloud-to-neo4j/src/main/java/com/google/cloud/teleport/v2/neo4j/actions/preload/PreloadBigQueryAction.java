@@ -20,11 +20,10 @@ import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
-import org.apache.commons.lang3.StringUtils;
-import org.neo4j.importer.v1.actions.BigQueryAction;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.neo4j.importer.v1.actions.BigQueryAction;
 
 /** Query action handler. */
 public class PreloadBigQueryAction implements PreloadAction<BigQueryAction> {

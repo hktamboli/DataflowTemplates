@@ -25,26 +25,25 @@ import org.neo4j.importer.v1.actions.BigQueryAction;
 import org.neo4j.importer.v1.actions.CypherAction;
 import org.neo4j.importer.v1.actions.HttpAction;
 
-/**
- * Factory providing indirection to action handler.
- */
+/** Factory providing indirection to action handler. */
 public class ActionPreloadFactory {
 
-    public static PreloadAction<? extends Action> of(Action action, ActionContext context) {
-        switch (action.getType()) {
-            case CYPHER:
-                PreloadCypherAction cypher = new PreloadCypherAction();
-                cypher.configure((CypherAction) action, context);
-                return cypher;
-            case HTTP:
-                PreloadHttpAction http = new PreloadHttpAction();
-                http.configure((HttpAction) action, context);
-                return http;
-            case BIGQUERY:
-                PreloadBigQueryAction bigQuery = new PreloadBigQueryAction();
-                bigQuery.configure((BigQueryAction) action, context);
-                return bigQuery;
-        }
-        throw new RuntimeException("Unhandled action type: " + action.getClass());
+  public static PreloadAction<? extends Action> of(Action action, ActionContext context) {
+    var actionType = action.getType();
+    switch (actionType) {
+      case CYPHER:
+        PreloadCypherAction cypher = new PreloadCypherAction();
+        cypher.configure((CypherAction) action, context);
+        return cypher;
+      case HTTP:
+        PreloadHttpAction http = new PreloadHttpAction();
+        http.configure((HttpAction) action, context);
+        return http;
+      case BIGQUERY:
+        PreloadBigQueryAction bigQuery = new PreloadBigQueryAction();
+        bigQuery.configure((BigQueryAction) action, context);
+        return bigQuery;
     }
+    throw new RuntimeException("Unsupported preload action type: " + actionType);
+  }
 }

@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.neo4j.importer.v1.actions.HttpAction;
+import org.neo4j.importer.v1.actions.HttpMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,10 +45,8 @@ public class PreloadHttpAction implements PreloadAction<HttpAction> {
     if (StringUtils.isEmpty(uri)) {
       throw new RuntimeException("Options 'uri' not provided for preload http_post action.");
     }
-    ;
-    try {
-      CloseableHttpResponse response =
-          HttpUtils.getHttpResponse(isPostRequest(), uri, action.getHeaders());
+    try (CloseableHttpResponse response =
+        HttpUtils.getHttpResponse(isPostRequest(action.getMethod()), uri, action.getHeaders())) {
       LOG.info("Request returned: {}", HttpUtils.getResponseContent(response));
 
     } catch (Exception e) {
@@ -58,16 +57,15 @@ public class PreloadHttpAction implements PreloadAction<HttpAction> {
     return msgs;
   }
 
-  private boolean isPostRequest() {
-    switch (action.getMethod()) {
-        case GET:
-          return false;
-        case POST:
-          return true;
+  public static boolean isPostRequest(HttpMethod method) {
+    switch (method) {
+      case GET:
+        return false;
+      case POST:
+        return true;
       default:
         throw new RuntimeException(
-                String.format("Unsupported HTTP method: %s, please specify GET or POST", action.getMethod())
-        );
+            String.format("Unsupported HTTP method: %s, please specify GET or POST", method));
     }
   }
 }

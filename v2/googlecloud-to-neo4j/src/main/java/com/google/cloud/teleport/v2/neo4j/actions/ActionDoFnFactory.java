@@ -17,30 +17,27 @@ package com.google.cloud.teleport.v2.neo4j.actions;
 
 import com.google.cloud.teleport.v2.neo4j.actions.function.BigQueryActionFn;
 import com.google.cloud.teleport.v2.neo4j.actions.function.CypherActionFn;
-import com.google.cloud.teleport.v2.neo4j.actions.function.HttpGetActionFn;
-import com.google.cloud.teleport.v2.neo4j.actions.function.HttpPostActionFn;
-import com.google.cloud.teleport.v2.neo4j.model.enums.ActionType;
-import com.google.cloud.teleport.v2.neo4j.model.job.Action;
+import com.google.cloud.teleport.v2.neo4j.actions.function.HttpActionFn;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.Row;
+import org.neo4j.importer.v1.actions.Action;
+import org.neo4j.importer.v1.actions.ActionType;
 
 /** Factory providing indirection to action handler. */
 public class ActionDoFnFactory {
 
   public static DoFn<Integer, Row> of(ActionContext context) {
     Action action = context.action;
-    ActionType actionType = action.type;
-    if (actionType == ActionType.bigquery) {
-      return new BigQueryActionFn(context);
-    } else if (actionType == ActionType.cypher) {
-      return new CypherActionFn(context);
-    } else if (actionType == ActionType.http_post) {
-      return new HttpPostActionFn(context);
-    } else if (actionType == ActionType.http_get) {
-      return new HttpGetActionFn(context);
-    } else {
-      throw new RuntimeException("Unhandled action type: " + actionType);
+    ActionType actionType = action.getType();
+    switch (actionType) {
+      case BIGQUERY:
+        return new BigQueryActionFn(context);
+      case CYPHER:
+        return new CypherActionFn(context);
+      case HTTP:
+        return new HttpActionFn(context);
     }
+    throw new RuntimeException("Unsupported action type: " + action.getClass());
   }
 }

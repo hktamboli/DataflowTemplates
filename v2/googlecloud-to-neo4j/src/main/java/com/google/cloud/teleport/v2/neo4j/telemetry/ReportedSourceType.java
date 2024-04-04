@@ -15,56 +15,57 @@
  */
 package com.google.cloud.teleport.v2.neo4j.telemetry;
 
-
 import org.neo4j.importer.v1.sources.ExternalTextSource;
 import org.neo4j.importer.v1.sources.InlineTextSource;
 import org.neo4j.importer.v1.sources.Source;
 import org.neo4j.importer.v1.sources.SourceType;
 
 public enum ReportedSourceType {
-    BIGQUERY {
-        @Override
-        public String format() {
-            return "BigQuery";
-        }
-    },
-    TEXT_INLINE {
-        @Override
-        public String format() {
-            return "Text/Inline";
-        }
-    },
-    TEXT_GCS {
-        @Override
-        public String format() {
-            return "Text/GCS";
-        }
-    };
-
-    public static ReportedSourceType reportedSourceTypeOf(Source source) {
-        SourceType sourceType = source.getType();
-        switch (sourceType) {
-            case BIGQUERY:
-                return ReportedSourceType.BIGQUERY;
-            case TEXT:
-                if (source instanceof InlineTextSource) {
-                    return TEXT_INLINE;
-                }
-                if (source instanceof ExternalTextSource) {
-                    return TEXT_GCS;
-                }
-                throw new IllegalArgumentException(String.format("could not determine concrete text source type: %s", sourceType));
-            default:
-                throw new IllegalArgumentException(
-                        String.format(
-                                "could not determine source type to report from given source type: %s", sourceType));
-        }
-    }
-
+  BIGQUERY {
     @Override
-    public String toString() {
-        return format();
+    public String format() {
+      return "BigQuery";
     }
+  },
+  TEXT_INLINE {
+    @Override
+    public String format() {
+      return "Text/Inline";
+    }
+  },
+  TEXT_GCS {
+    @Override
+    public String format() {
+      return "Text/GCS";
+    }
+  };
 
-    public abstract String format();
+  public static ReportedSourceType reportedSourceTypeOf(Source source) {
+    SourceType sourceType = source.getType();
+    switch (sourceType) {
+      case BIGQUERY:
+        return ReportedSourceType.BIGQUERY;
+      case TEXT:
+        if (source instanceof InlineTextSource) {
+          return TEXT_INLINE;
+        }
+        if (source instanceof ExternalTextSource) {
+          return TEXT_GCS;
+        }
+        throw new IllegalArgumentException(
+            String.format("could not determine concrete text source type: %s", sourceType));
+      default:
+        throw new IllegalArgumentException(
+            String.format(
+                "could not determine source type to report from given source type: %s",
+                sourceType));
+    }
+  }
+
+  @Override
+  public String toString() {
+    return format();
+  }
+
+  public abstract String format();
 }

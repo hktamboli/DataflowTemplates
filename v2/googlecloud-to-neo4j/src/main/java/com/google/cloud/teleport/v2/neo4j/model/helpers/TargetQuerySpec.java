@@ -24,14 +24,14 @@ import org.neo4j.importer.v1.targets.Target;
  * Convenience object for passing Source metadata, Target metadata, PCollection schema, and nullable
  * source rows, together.
  */
-public class TargetQuerySpec<T extends Target> {
+public class TargetQuerySpec {
 
   private final Schema sourceBeamSchema;
   private final PCollection<Row> nullableSourceRows;
-  private final T target;
+  private final Target target;
 
   public TargetQuerySpec(
-          Schema sourceBeamSchema, PCollection<Row> nullableSourceRows, T target) {
+      Schema sourceBeamSchema, PCollection<Row> nullableSourceRows, Target target) {
     this.sourceBeamSchema = sourceBeamSchema;
     this.nullableSourceRows = nullableSourceRows;
     this.target = target;
@@ -49,29 +49,29 @@ public class TargetQuerySpec<T extends Target> {
     return target;
   }
 
-  public static class TargetQuerySpecBuilder<T extends Target> {
+  public static class TargetQuerySpecBuilder {
 
     private Schema sourceBeamSchema;
     private PCollection<Row> nullableSourceRows;
-    private T target;
+    private Target target;
 
-    public TargetQuerySpecBuilder<T> sourceBeamSchema(Schema sourceBeamSchema) {
+    public TargetQuerySpecBuilder sourceBeamSchema(Schema sourceBeamSchema) {
       this.sourceBeamSchema = sourceBeamSchema;
       return this;
     }
 
-    public TargetQuerySpecBuilder<T> nullableSourceRows(PCollection<Row> nullableSourceRows) {
+    public TargetQuerySpecBuilder nullableSourceRows(PCollection<Row> nullableSourceRows) {
       this.nullableSourceRows = nullableSourceRows;
       return this;
     }
 
-    public TargetQuerySpecBuilder<T> target(T target) {
+    public TargetQuerySpecBuilder target(Target target) {
       this.target = target;
       return this;
     }
 
-    public TargetQuerySpec<T> build() {
-      return new TargetQuerySpec<>(sourceBeamSchema, nullableSourceRows, target);
+    public TargetQuerySpec build() {
+      return new TargetQuerySpec(sourceBeamSchema, nullableSourceRows, target);
     }
   }
 }

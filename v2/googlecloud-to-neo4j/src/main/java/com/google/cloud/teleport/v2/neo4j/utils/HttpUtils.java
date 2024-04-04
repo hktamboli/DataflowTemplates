@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.apache.http.NameValuePair;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -41,7 +40,7 @@ public class HttpUtils {
   private static final Logger LOG = LoggerFactory.getLogger(HttpUtils.class);
 
   public static CloseableHttpResponse getHttpResponse(
-          boolean post, String uri, Map<String, String> headers)
+      boolean post, String uri, Map<String, String> headers)
       throws IOException, URISyntaxException {
 
     try (CloseableHttpClient httpclient = HttpClients.createDefault()) {

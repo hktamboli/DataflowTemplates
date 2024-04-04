@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
-
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -72,7 +71,7 @@ public class SourceMapper {
         Arrays.asList(StringUtils.stripAll(rawSource.getString("ordered_field_names").split(",")));
     var format =
         TextFormat.valueOf(
-            getStringOrDefault(rawSource, "format", "default").toLowerCase(Locale.ROOT));
+            getStringOrDefault(rawSource, "format", "default").toUpperCase(Locale.ROOT));
     var delimiter = getStringOrDefault(rawSource, "delimiter", ",").substring(0, 1);
     var separator = getStringOrNull(rawSource, "separator");
     if (rawSource.has("uri") || rawSource.has("url")) {
@@ -110,5 +109,4 @@ public class SourceMapper {
     var sourceName = getStringOrDefault(rawSource, "name", DEFAULT_SOURCE_NAME);
     return new BigQuerySource(sourceName, rawSource.getString("query"));
   }
-
 }
