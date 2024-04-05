@@ -449,7 +449,7 @@ public class ModelUtilsTest {
             null,
             type,
             WriteMode.CREATE,
-            NodeMatchMode.CREATE,
+            NodeMatchMode.MERGE,
             null,
             "start-node-target",
             "end-node-target",

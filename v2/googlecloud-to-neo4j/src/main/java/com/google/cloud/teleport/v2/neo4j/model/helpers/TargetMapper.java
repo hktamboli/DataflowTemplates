@@ -221,17 +221,12 @@ public class TargetMapper {
   }
 
   private static WriteMode asNodeWriteMode(NodeMatchMode nodeMatchMode) {
-    switch (nodeMatchMode) {
-      case CREATE:
-        return WriteMode.CREATE;
-      case MERGE:
-        return WriteMode.MERGE;
-      default:
-        throw new IllegalArgumentException(
-            String.format(
-                "expected node match mode to be either create or merge, but got: %s",
-                nodeMatchMode));
+    if (nodeMatchMode == NodeMatchMode.MERGE) {
+      return WriteMode.MERGE;
     }
+    throw new IllegalArgumentException(
+        String.format(
+            "expected node match mode to be either create or merge, but got: %s", nodeMatchMode));
   }
 
   private static NodeMatchMode asNodeMatchMode(JSONObject edge, WriteMode writeMode) {
@@ -244,7 +239,7 @@ public class TargetMapper {
   private static NodeMatchMode defaultNodeMatchModeFor(WriteMode writeMode) {
     switch (writeMode) {
       case CREATE:
-        return NodeMatchMode.CREATE;
+        return NodeMatchMode.MERGE;
       case MERGE:
         return NodeMatchMode.MATCH;
       default:

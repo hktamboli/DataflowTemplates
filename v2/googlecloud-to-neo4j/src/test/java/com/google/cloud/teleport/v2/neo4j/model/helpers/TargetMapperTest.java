@@ -97,8 +97,7 @@ public class TargetMapperTest {
     Targets targets = TargetMapper.fromJson(arrayOf(object));
 
     assertThat(targets.getRelationships()).hasSize(1);
-    assertThat(targets.getRelationships().get(0).getNodeMatchMode())
-        .isEqualTo(NodeMatchMode.CREATE);
+    assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
   }
 
   @Test
