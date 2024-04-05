@@ -84,7 +84,7 @@ public class PreloadCypherAction implements PreloadAction<CypherAction> {
                 Neo4jTelemetry.transactionMetadata(
                     Map.of(
                         "sink", "neo4j",
-                        "step", "preload-cypher-action",
+                        "step", "cypher-preload-action",
                         "execution", executionMode.name().toLowerCase(Locale.ROOT))))
             .build();
     switch (executionMode) {
