@@ -40,18 +40,18 @@ public class CypherGeneratorTest {
   @Test
   public void specifies_keys_in_relationship_merge_pattern() {
     var importSpecification =
-        JobSpecMapper.fromUri(SPEC_PATH + "/s   ingle-target-relation-import-with-keys-spec.json");
+        JobSpecMapper.fromUri(SPEC_PATH + "/single-target-relation-import-with-keys-spec.json");
     RelationshipTarget relationshipTarget =
         importSpecification.getTargets().getRelationships().iterator().next();
     String statement = CypherGenerator.getImportStatement(importSpecification, relationshipTarget);
 
     assertThat(statement)
         .isEqualTo(
-            "UNWIND $rows AS row  "
-                + "MATCH (source:Source {id: row.source}) "
-                + "MATCH (target:Target {id: row.target}) "
-                + "MERGE (source)-[rel:LINKS {rel_id1: row.rel_id_1,rel_id2: row.rel_id_2}]->(target) "
-                + "SET rel += {ts: row.timestamp}");
+            "UNWIND $rows AS row "
+                + "MATCH (start:`Source` {`id`: row.`source`}) "
+                + "MATCH (end:`Target` {`id`: row.`target`}) "
+                + "MERGE (start)-[r:`LINKS` {`id1`: row.`rel_id_1`, `id2`: row.`rel_id_2`}]->(end) "
+                + "SET r.`ts` = row.`timestamp`");
   }
 
   @Test
@@ -64,11 +64,11 @@ public class CypherGeneratorTest {
 
     assertThat(statement)
         .isEqualTo(
-            "UNWIND $rows AS row  "
-                + "MATCH (source:Source {id: row.source}) "
-                + "MATCH (target:Target {id: row.target}) "
-                + "MERGE (source)-[rel:LINKS]->(target) "
-                + "SET rel += {ts: row.timestamp}");
+            "UNWIND $rows AS row "
+                + "MATCH (start:`Source` {`id`: row.`source`}) "
+                + "MATCH (end:`Target` {`id`: row.`target`}) "
+                + "MERGE (start)-[r:`LINKS`]->(end) "
+                + "SET r.`ts` = row.`timestamp`");
   }
 
   @Test
@@ -82,10 +82,10 @@ public class CypherGeneratorTest {
 
     assertThat(statement)
         .isEqualTo(
-            "UNWIND $rows AS row  "
-                + "MERGE (source:Source {src_id: row.source}) "
-                + "MERGE (target:Target {tgt_id: row.target}) "
-                + "MERGE (source)-[rel:LINKS]->(target) SET rel += {ts: row.timestamp}");
+            "UNWIND $rows AS row "
+                + "MERGE (start:`Source` {`src_id`: row.`source`}) "
+                + "MERGE (end:`Target` {`tgt_id`: row.`target`}) "
+                + "MERGE (start)-[r:`LINKS`]->(end) SET r.`ts` = row.`timestamp`");
   }
 
   @Test
@@ -100,14 +100,14 @@ public class CypherGeneratorTest {
 
     assertThat(statement)
         .isEqualTo(
-            "UNWIND $rows AS row  "
-                + "MERGE (source:Source {src_id: row.source}) "
-                + "MERGE (target:Target {tgt_id: row.target}) "
-                + "CREATE (source)-[rel:LINKS]->(target) SET rel += {ts: row.timestamp}");
+            "UNWIND $rows AS row "
+                + "MERGE (start:`Source` {`src_id`: row.`source`}) "
+                + "MERGE (end:`Target` {`tgt_id`: row.`target`}) "
+                + "CREATE (start)-[r:`LINKS`]->(end) SET r.`ts` = row.`timestamp`");
   }
 
   @Test
-  public void generates_node_key_constraints_when_merging_edge_and_its_nodes() {
+  public void does_not_generate_constraints_for_edge_without_schema() {
     var importSpecification =
         JobSpecMapper.fromUri(SPEC_PATH + "/single-target-relation-import-merge-all.json");
     RelationshipTarget relationshipTarget =
@@ -115,91 +115,11 @@ public class CypherGeneratorTest {
 
     Set<String> statements = CypherGenerator.getSchemaStatements(relationshipTarget);
 
-    assertThat(statements)
-        .isEqualTo(
-            Set.of(
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Source) REQUIRE n.src_id IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Target) REQUIRE n.tgt_id IS NODE KEY"));
+    assertThat(statements).isEmpty();
   }
 
   @Test
-  public void generates_node_key_constraints_when_creating_edge_and_merging_its_nodes() {
-    var importSpecification =
-        JobSpecMapper.fromUri(
-            SPEC_PATH + "/single-target-relation-import-create-rels-merge-nodes.json");
-    RelationshipTarget relationshipTarget =
-        importSpecification.getTargets().getRelationships().iterator().next();
-
-    Set<String> statements = CypherGenerator.getSchemaStatements(relationshipTarget);
-
-    assertThat(statements)
-        .isEqualTo(
-            Set.of(
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Source) REQUIRE n.src_id IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Target) REQUIRE n.tgt_id IS NODE KEY"));
-  }
-
-  @Test
-  public void generates_multi_label_node_key_constraints_when_merging_edge_nodes() {
-    var importSpecification =
-        JobSpecMapper.fromUri(SPEC_PATH + "/multi-label-single-pass-import.json");
-    RelationshipTarget relationshipTarget =
-        importSpecification.getTargets().getRelationships().iterator().next();
-
-    Set<String> statements = CypherGenerator.getSchemaStatements(relationshipTarget);
-
-    assertThat(statements)
-        .isEqualTo(
-            Set.of(
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Source1) REQUIRE n.src_id IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Source2) REQUIRE n.src_id IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Target1) REQUIRE n.tgt_id IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Target2) REQUIRE n.tgt_id IS NODE KEY"));
-  }
-
-  @Test
-  public void generates_multi_distinct_keys_node_key_constraints_when_merging_edge_nodes() {
-    var importSpecification =
-        JobSpecMapper.fromUri(SPEC_PATH + "/multi-distinct-keys-single-pass-import.json");
-    RelationshipTarget relationshipTarget =
-        importSpecification.getTargets().getRelationships().iterator().next();
-
-    Set<String> statements = CypherGenerator.getSchemaStatements(relationshipTarget);
-
-    assertThat(statements)
-        .isEqualTo(
-            Set.of(
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Source) REQUIRE n.src_id1 IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Source) REQUIRE n.src_id2 IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Target) REQUIRE n.tgt_id1 IS NODE KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Target) REQUIRE n.tgt_id2 IS NODE KEY"));
-  }
-
-  @Test
-  public void does_not_generate_duplicate_statement_for_self_linking_nodes() {
-    // TODO: update getSchemaStatements to optionally take start/end node targets as well
-    var node =
-        new NodeTarget(
-            true,
-            "node-target",
-            "a-source",
-            null,
-            WriteMode.MERGE,
-            null,
-            List.of("PlaceholderLabel"),
-            List.of(new PropertyMapping("source_node_field", "targetNodeProperty", null)),
-            new NodeSchema(
-                null,
-                List.of(
-                    new NodeKeyConstraint(
-                        "node-key", "PlaceholderLabel", List.of("targetNodeProperty"), null)),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null));
+  public void generates_relationship_key_statement() {
     var relationship =
         new RelationshipTarget(
             true,
@@ -230,8 +150,7 @@ public class CypherGeneratorTest {
     assertThat(schemaStatements)
         .isEqualTo(
             Set.of(
-                "CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:SELF_LINKS_TO]-() REQUIRE r.targetRelProperty IS RELATIONSHIP KEY",
-                "CREATE CONSTRAINT IF NOT EXISTS FOR (n:PlaceholderLabel) REQUIRE n.targetNodeProperty IS NODE KEY"));
+                "CREATE CONSTRAINT `rel-key` IF NOT EXISTS FOR ()-[r:`SELF_LINKS_TO`]-() REQUIRE [r.`targetRelProperty`] IS RELATIONSHIP KEY"));
   }
 
   @Test
@@ -288,7 +207,7 @@ public class CypherGeneratorTest {
             null,
             "LINKS_TO",
             WriteMode.MERGE,
-            NodeMatchMode.MERGE,
+            NodeMatchMode.MATCH,
             null,
             "start-node-target",
             "end-node-target",
@@ -317,8 +236,8 @@ public class CypherGeneratorTest {
     assertThat(importStatement)
         .isEqualTo(
             "UNWIND $rows AS row "
-                + "MATCH (source:StartNode {targetNodeProperty: row.source_node_field}) "
-                + "MATCH (target:EndNode {targetNodeProperty: row.source_node_field}) "
-                + "MERGE (source)-[rel:LINKS_TO {targetRelProperty: row.source_field}]->(target)");
+                + "MATCH (start:`StartNode` {`targetNodeProperty`: row.`source_node_field`}) "
+                + "MATCH (end:`EndNode` {`targetNodeProperty`: row.`source_node_field`}) "
+                + "MERGE (start)-[r:`LINKS_TO` {`targetRelProperty`: row.`source_field`}]->(end)");
   }
 }

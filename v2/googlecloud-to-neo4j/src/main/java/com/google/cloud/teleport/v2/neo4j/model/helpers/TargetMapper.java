@@ -101,43 +101,26 @@ public class TargetMapper {
   private static RelationshipTarget parseEdge(JSONObject edge, List<NodeTarget> nodes) {
     WriteMode writeMode = asWriteMode(edge.getString("mode"));
     NodeMatchMode nodeMatchMode = asNodeMatchMode(edge, writeMode);
-    String startNodeReference;
-    String endNodeReference;
-    if (nodeMatchMode == NodeMatchMode.MATCH) {
-      /*
-       * since the node mode is MATCH, this means nodes have been created elsewhere, by another target
-       * Note: this assumption only works if "another target" is either a node or relationship target AND has been
-       * processed before this one
-       */
-      startNodeReference = findNodeTarget(edge, "source", nodes).getName();
-      endNodeReference = findNodeTarget(edge, "target", nodes).getName();
-    } else {
-      /*
-       * the mode is either CREATE or MERGE, so we extract a property node target out of the edge node information
-       */
-      WriteMode nodeWriteMode = asNodeWriteMode(nodeMatchMode);
-      NodeTarget sourceNode = parseEdgeNode(edge, "source", nodeWriteMode);
-      startNodeReference = sourceNode.getName();
-      nodes.add(sourceNode);
-      NodeTarget targetNode = parseEdgeNode(edge, "target", nodeWriteMode);
-      endNodeReference = targetNode.getName();
-      nodes.add(targetNode);
-    }
+    String startNodeReference =
+        findNodeTargetOrCreate(edge, "source", nodeMatchMode, nodes).getName();
+    String endNodeReference =
+        findNodeTargetOrCreate(edge, "target", nodeMatchMode, nodes).getName();
     JSONObject mappings = edge.getJSONObject("mappings");
     String targetName = edge.getString("name");
+    String relationshipType = parseType(mappings);
     return new RelationshipTarget(
         getBooleanOrDefault(edge, "active", true),
         targetName,
         getStringOrDefault(edge, "source", DEFAULT_SOURCE_NAME),
         null, // TODO: process dependencies
-        parseType(mappings),
+        relationshipType,
         writeMode,
         nodeMatchMode,
         parseSourceTransformations(edge),
         startNodeReference,
         endNodeReference,
         parseMappings(mappings),
-        parseEdgeSchema(targetName, parseType(mappings), mappings));
+        parseEdgeSchema(targetName, relationshipType, mappings));
   }
 
   private static CustomQueryTarget parseCustomQuery(JSONObject query) {
@@ -208,6 +191,18 @@ public class TargetMapper {
     return new IllegalArgumentException(error);
   }
 
+  private static NodeTarget findNodeTargetOrCreate(
+      JSONObject edge, String key, NodeMatchMode matchMode, List<NodeTarget> nodes) {
+    return findNodeTarget(edge, key, nodes)
+        .orElseGet(
+            () -> {
+              WriteMode nodeWriteMode = asNodeWriteMode(matchMode);
+              NodeTarget sourceNode = parseEdgeNode(edge, key, nodeWriteMode);
+              nodes.add(sourceNode);
+              return sourceNode;
+            });
+  }
+
   private static WriteMode asWriteMode(String mode) {
     switch (mode) {
       case "append":
@@ -220,13 +215,16 @@ public class TargetMapper {
     }
   }
 
-  private static WriteMode asNodeWriteMode(NodeMatchMode nodeMatchMode) {
-    if (nodeMatchMode == NodeMatchMode.MERGE) {
-      return WriteMode.MERGE;
+  private static WriteMode asNodeWriteMode(NodeMatchMode matchMode) {
+    switch (matchMode) {
+      case MATCH:
+        return WriteMode.CREATE;
+      case MERGE:
+        return WriteMode.MERGE;
     }
     throw new IllegalArgumentException(
         String.format(
-            "expected node match mode to be either create or merge, but got: %s", nodeMatchMode));
+            "expected node match mode to be either match or merge, but got: %s", matchMode));
   }
 
   private static NodeMatchMode asNodeMatchMode(JSONObject edge, WriteMode writeMode) {

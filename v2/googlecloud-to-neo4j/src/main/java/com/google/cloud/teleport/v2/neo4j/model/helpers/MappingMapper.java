@@ -34,7 +34,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.neo4j.importer.v1.targets.NodeKeyConstraint;
@@ -58,24 +58,18 @@ import org.neo4j.importer.v1.targets.WriteMode;
 public class MappingMapper {
 
   public static String parseType(JSONObject mappings) {
-    return getStringOrNull(mappings, "type");
+    return unquote(getStringOrNull(mappings, "type"));
   }
 
-  public static NodeTarget findNodeTarget(JSONObject edge, String key, List<NodeTarget> nodes) {
+  public static Optional<NodeTarget> findNodeTarget(
+      JSONObject edge, String key, List<NodeTarget> nodes) {
     JSONObject node = getEdgeNode(edge.getJSONObject("mappings"), key);
     Collection<PropertyMapping> mappings = parseKeyMappings(node);
     return nodes.stream()
-        .filter(target -> new HashSet<>(target.getProperties()).containsAll(mappings))
-        .findFirst()
-        .orElseThrow(
-            () ->
-                new RuntimeException(
-                    String.format(
-                        "could not find matching node target for edge %s after inspecting node targets %s",
-                        edge.getString("name"),
-                        nodes.stream()
-                            .map(NodeTarget::getName)
-                            .collect(Collectors.joining(", ")))));
+        .filter(
+            target ->
+                new HashSet<>(target.getProperties()).containsAll(mappings)) // TODO: schema keys?
+        .findFirst();
   }
 
   public static NodeTarget parseEdgeNode(JSONObject edge, String key, WriteMode writeMode) {
@@ -116,24 +110,10 @@ public class MappingMapper {
     // does not make much sense
     List<String> labels = new ArrayList<>();
     if (mappings.has("label")) {
-      labels.add(parseLabel(mappings.getString("label")));
+      labels.addAll(parseLabelStringOrArray(mappings.get("label")));
     }
     if (mappings.has("labels")) {
-      Object rawLabels = mappings.get("labels");
-      if (rawLabels instanceof String) {
-        String rawLabel = (String) rawLabels;
-        labels.add(parseLabel(rawLabel));
-      } else if (rawLabels instanceof JSONArray) {
-        JSONArray jsonLabels = (JSONArray) rawLabels;
-        for (int i = 0; i < jsonLabels.length(); i++) {
-          labels.add(parseLabel(jsonLabels.getString(i)));
-        }
-      } else {
-        throw new IllegalArgumentException(
-            String.format(
-                "Unsupported type for label(s), expected string or array of strings, got: %s",
-                rawLabels.getClass()));
-      }
+      labels.addAll(parseLabelStringOrArray(mappings.get("labels")));
     }
     return labels;
   }
@@ -311,12 +291,31 @@ public class MappingMapper {
         null);
   }
 
-  private static String parseLabel(String rawLabel) {
-    String label = rawLabel.trim();
-    if (label.charAt(0) == '"' && label.charAt(label.length() - 1) == '"') {
-      return label.substring(1, label.length() - 1);
+  private static List<String> parseLabelStringOrArray(Object rawLabels) {
+    List<String> labels = new ArrayList<>();
+    if (rawLabels instanceof String) {
+      String rawLabel = (String) rawLabels;
+      labels.add(unquote(rawLabel));
+    } else if (rawLabels instanceof JSONArray) {
+      JSONArray jsonLabels = (JSONArray) rawLabels;
+      for (int i = 0; i < jsonLabels.length(); i++) {
+        labels.add(unquote(jsonLabels.getString(i)));
+      }
+    } else {
+      throw new IllegalArgumentException(
+          String.format(
+              "Unsupported type for label(s), expected string or array of strings, got: %s",
+              rawLabels.getClass()));
     }
-    return label;
+    return labels;
+  }
+
+  private static String unquote(String string) {
+    String value = string.trim();
+    if (value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {
+      return value.substring(1, value.length() - 1);
+    }
+    return value;
   }
 
   private static PropertyMapping untypedMapping(String field, String property) {

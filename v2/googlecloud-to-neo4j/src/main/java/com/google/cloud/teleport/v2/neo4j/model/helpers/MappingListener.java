@@ -180,7 +180,7 @@ class SingleNodeKeyConstraintListener implements MappingListener {
           String name =
               String.format(
                   "%s-%s-node-single-key-for-%s", targetName, label, String.join("-", properties));
-          schema.add(new NodeKeyConstraint(name, label, properties, null));
+          schema.add(new NodeKeyConstraint(name, label, new ArrayList<>(properties), null));
         });
     properties.clear();
   }
@@ -332,7 +332,7 @@ abstract class CompoundRelationshipSchemaListener<T> implements MappingListener 
 
   @Override
   public void exitObject() {
-    schema.add(newSchemaElement(properties));
+    schema.add(newSchemaElement(new ArrayList<>(properties)));
     properties.clear();
   }
 
