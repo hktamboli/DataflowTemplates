@@ -279,7 +279,7 @@ abstract class CompoundNodeSchemaListener<T> implements MappingListener {
 
   @Override
   public void exitObject() {
-    labels.forEach(label -> schema.add(newSchemaElement(label, properties)));
+    labels.forEach(label -> schema.add(newSchemaElement(label, new ArrayList<>(properties))));
     properties.clear();
   }
 

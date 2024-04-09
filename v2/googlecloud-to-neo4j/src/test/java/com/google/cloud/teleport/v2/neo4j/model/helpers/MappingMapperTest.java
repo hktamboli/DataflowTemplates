@@ -34,19 +34,22 @@ import org.neo4j.importer.v1.targets.WriteMode;
 public class MappingMapperTest {
 
   @Test
-  public void parsesMultipleKeyMappingsFromObjectForEdgeSourceNode() {
-    var sourceNode =
-        Map.of(
-            "source",
-            Map.of("label", "Placeholder", "key", Map.of("key1", "value1", "key2", "value2")));
+  public void parses_edge_source_node_with_key_mappings_from_object() {
     var edge =
         new JSONObject(
             Map.of(
                 "name", "an-edge",
                 "source", "a-source",
-                "mappings", sourceNode));
+                "mappings",
+                    Map.of(
+                        "source",
+                        Map.of(
+                            "label",
+                            "Placeholder",
+                            "key",
+                            Map.of("key1", "value1", "key2", "value2")))));
 
-    NodeTarget result = MappingMapper.parseEdgeNode(edge, "source", WriteMode.CREATE);
+    var result = MappingMapper.parseEdgeNode(edge, "source", WriteMode.CREATE);
 
     assertThat(result)
         .isEqualTo(
@@ -64,30 +67,29 @@ public class MappingMapperTest {
                 nodeKeys(
                     List.of(
                         new NodeKeyConstraint(
-                            "an-edge-source-node-single-key-for-value1-value2",
+                            "an-edge-source-Placeholder-node-single-key-for-value1-value2",
                             "Placeholder",
                             List.of("value1", "value2"),
                             null)))));
   }
 
   @Test
-  public void parsesMultipleKeyMappingsFromObjectArrayForEdgeSourceNode() {
-    var sourceNode =
-        Map.of(
-            "source",
-            Map.of(
-                "label",
-                "Placeholder",
-                "keys",
-                List.of(
-                    Map.of("key1", "value1", "key2", "value2"),
-                    Map.of("key3", "value3", "key4", "value4"))));
+  public void parses_edge_source_node_with_key_mappings_from_object_array() {
     var edge =
         new JSONObject(
             Map.of(
                 "name", "an-edge",
                 "source", "a-source",
-                "mappings", sourceNode));
+                "mappings",
+                    Map.of(
+                        "source",
+                        Map.of(
+                            "label",
+                            "Placeholder",
+                            "keys",
+                            List.of(
+                                Map.of("key1", "value1", "key2", "value2"),
+                                Map.of("key3", "value3", "key4", "value4"))))));
 
     NodeTarget result = MappingMapper.parseEdgeNode(edge, "source", WriteMode.MERGE);
 
@@ -109,30 +111,31 @@ public class MappingMapperTest {
                 nodeKeys(
                     List.of(
                         new NodeKeyConstraint(
-                            "an-edge-source-node-key-for-value1-value2",
+                            "an-edge-source-Placeholder-node-key-for-value1-value2",
                             "Placeholder",
                             List.of("value1", "value2"),
                             null),
                         new NodeKeyConstraint(
-                            "an-edge-source-node-key-for-value3-value4",
+                            "an-edge-source-Placeholder-node-key-for-value3-value4",
                             "Placeholder",
                             List.of("value3", "value4"),
                             null)))));
   }
 
   @Test
-  public void parsesMultipleKeyMappingsFromStringArrayForEdgeSourceNode() {
-    var sourceNode =
-        new JSONObject(
-            Map.of("source", Map.of("label", "Placeholder", "key", List.of("value1", "value2"))));
+  public void parses_edge_source_node_with_key_mappings_from_string_array() {
     var edge =
         new JSONObject(
             Map.of(
                 "name", "an-edge",
                 "source", "a-source",
-                "mappings", sourceNode));
+                "mappings",
+                    new JSONObject(
+                        Map.of(
+                            "source",
+                            Map.of("label", "Placeholder", "key", List.of("value1", "value2"))))));
 
-    NodeTarget result = MappingMapper.parseEdgeNode(edge, "source", WriteMode.CREATE);
+    var result = MappingMapper.parseEdgeNode(edge, "source", WriteMode.CREATE);
 
     assertThat(result)
         .isEqualTo(
@@ -146,34 +149,38 @@ public class MappingMapperTest {
                 List.of("Placeholder"),
                 List.of(
                     new PropertyMapping("value1", "value1", null),
-                    new PropertyMapping("value1", "value2", null)),
+                    new PropertyMapping("value2", "value2", null)),
                 nodeKeys(
                     List.of(
                         new NodeKeyConstraint(
-                            "an-edge-source-node-single-key-for-value1-value2",
+                            "an-edge-source-Placeholder-node-single-key-for-value1-value2",
                             "Placeholder",
                             List.of("value1", "value2"),
                             null)))));
   }
 
   @Test
-  public void parsesMultipleKeyMappingsFromMixedArrayForEdgeSourceNode() {
-    var sourceNode =
-        new JSONObject(
-            Map.of(
-                "source",
-                Map.of(
-                    "label", "Placeholder", "keys", List.of("value1", Map.of("key2", "value2")))));
+  public void parses_edge_source_node_with_key_mappings_from_mixed_array() {
     var edge =
         new JSONObject(
             Map.of(
                 "name", "an-edge",
                 "source", "a-source",
-                "mappings", sourceNode));
+                "mappings",
+                    new JSONObject(
+                        Map.of(
+                            "type",
+                            "TYPE",
+                            "source",
+                            Map.of(
+                                "label",
+                                "Placeholder",
+                                "keys",
+                                List.of("value1", Map.of("key2", "value2")))))));
 
-    NodeTarget result = MappingMapper.parseEdgeNode(sourceNode, "source", WriteMode.MERGE);
+    var node = MappingMapper.parseEdgeNode(edge, "source", WriteMode.MERGE);
 
-    assertThat(result)
+    assertThat(node)
         .isEqualTo(
             new NodeTarget(
                 true,
@@ -189,35 +196,35 @@ public class MappingMapperTest {
                 nodeKeys(
                     List.of(
                         new NodeKeyConstraint(
-                            "an-edge-source-node-single-key-for-value1",
+                            "an-edge-source-Placeholder-node-key-for-value1",
                             "Placeholder",
                             List.of("value1"),
                             null),
                         new NodeKeyConstraint(
-                            "an-edge-source-node-key-for-value2",
+                            "an-edge-source-Placeholder-node-key-for-value2",
                             "Placeholder",
                             List.of("value2"),
                             null)))));
   }
 
   @Test
-  public void parsesLabels() {
+  public void parses_labels() {
     var mappings = Map.<String, Object>of("labels", new String[] {"\"Customer\"", "\"Buyer\""});
 
-    List<String> labels = MappingMapper.parseLabels(new JSONObject(mappings));
+    var labels = MappingMapper.parseLabels(new JSONObject(mappings));
 
     assertThat(labels).isEqualTo(List.of("Customer", "Buyer"));
   }
 
   @Test
-  public void parsesMandatoryMappingArrayOfNodeTarget() {
+  public void parses_mandatory_mapping_array_of_node_target() {
     var mappings =
         new JSONObject(
             Map.of(
                 "properties",
                 Map.of("mandatory", List.of(Map.of("source_field", "targetProperty")))));
 
-    NodeSchema nodeSchema =
+    var nodeSchema =
         MappingMapper.parseNodeSchema("placeholder-target", List.of("Placeholder"), mappings);
 
     assertThat(nodeSchema)
@@ -239,13 +246,15 @@ public class MappingMapperTest {
   }
 
   @Test
-  public void parsesMandatoryMappingObjectOfEdgeTarget() {
-    var mappings =
-        new JSONObject(
-            Map.of("properties", Map.of("mandatory", Map.of("source_field", "targetProperty"))));
+  public void parses_mandatory_mapping_object_of_edge_target() {
 
-    RelationshipSchema schema =
-        MappingMapper.parseEdgeSchema("placeholder-target", "PLACEHOLDER", mappings);
+    var schema =
+        MappingMapper.parseEdgeSchema(
+            "placeholder-target",
+            "PLACEHOLDER",
+            new JSONObject(
+                Map.of(
+                    "properties", Map.of("mandatory", Map.of("source_field", "targetProperty")))));
 
     assertThat(schema)
         .isEqualTo(
@@ -265,7 +274,7 @@ public class MappingMapperTest {
   }
 
   @Test
-  public void supportsBooleanPropertiesDefinedAsObjectArray() {
+  public void supports_boolean_properties_defined_as_object_array() {
     var mappings =
         new JSONObject(
             Map.of(
@@ -278,7 +287,7 @@ public class MappingMapperTest {
                         Map.of("boolean_source_field1", "booleanNodeProperty1"),
                         Map.of("boolean_source_field2", "booleanNodeProperty2")))));
 
-    List<PropertyMapping> propertyMappings = MappingMapper.parseMappings(mappings);
+    var propertyMappings = MappingMapper.parseMappings(mappings);
 
     assertThat(propertyMappings)
         .isEqualTo(
