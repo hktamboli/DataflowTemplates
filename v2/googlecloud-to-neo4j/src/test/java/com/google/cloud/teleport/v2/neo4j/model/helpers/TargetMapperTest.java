@@ -32,7 +32,7 @@ import org.neo4j.importer.v1.targets.Targets;
 public class TargetMapperTest {
 
   @Test
-  public void parsesCustomQueryTarget() {
+  public void parses_custom_query_target() {
     JSONObject jsonTarget = jsonTargetOfType("custom_query");
     JSONObject customObject = jsonTarget.getJSONObject("custom_query");
     customObject.put("query", "UNWIND $rows AS row CREATE (:Node {prop: row.prop})");
@@ -53,55 +53,81 @@ public class TargetMapperTest {
   }
 
   @Test
-  public void setsSpecifiedMatchModeForEdgeTargets() {
-    JSONObject object = jsonTargetOfType("edge");
-    JSONObject edgeObject = object.getJSONObject("edge");
-    edgeObject.put("mode", "merge");
-    edgeObject.put("edge_nodes_match_mode", "merge");
+  public void sets_specified_match_mode_for_edge_targets() {
+    JSONObject target = jsonTargetOfType("edge");
+    JSONObject edge = target.getJSONObject("edge");
+    edge.put("mode", "merge");
+    edge.put("edge_nodes_match_mode", "merge");
+    edge.put(
+        "mappings",
+        Map.of(
+            "type", "TYPE",
+            "source", Map.of("label", "Placeholder1", "key", "key1"),
+            "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(object));
-
-    assertThat(targets.getRelationships()).hasSize(1);
-    assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
-  }
-
-  @Test
-  public void setsSpecifiedMatchModeForEdgeTargetsInAppendMode() {
-    JSONObject object = jsonTargetOfType("edge");
-    JSONObject edgeObject = object.getJSONObject("edge");
-    edgeObject.put("mode", "append");
-    edgeObject.put("edge_nodes_match_mode", "merge");
-
-    Targets targets = TargetMapper.fromJson(arrayOf(object));
+    Targets targets = TargetMapper.fromJson(arrayOf(target));
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
   }
 
   @Test
-  public void setsDefaultNodeMatchModeForEdgeTargetsToMerge() {
-    JSONObject object = jsonTargetOfType("edge");
-    object.getJSONObject("edge").put("mode", "merge");
+  public void sets_specified_match_mode_for_edge_targets_in_append_mode() {
+    JSONObject target = jsonTargetOfType("edge");
+    JSONObject edge = target.getJSONObject("edge");
+    edge.put("mode", "append");
+    edge.put("edge_nodes_match_mode", "merge");
+    edge.put(
+        "mappings",
+        Map.of(
+            "type", "TYPE",
+            "source", Map.of("label", "Placeholder1", "key", "key1"),
+            "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(object));
+    Targets targets = TargetMapper.fromJson(arrayOf(target));
+
+    assertThat(targets.getRelationships()).hasSize(1);
+    assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
+  }
+
+  @Test
+  public void sets_default_node_match_mode_for_edge_targets_to_merge() {
+    JSONObject target = jsonTargetOfType("edge");
+    JSONObject edge = target.getJSONObject("edge");
+    edge.put("mode", "merge");
+    edge.put(
+        "mappings",
+        Map.of(
+            "type", "TYPE",
+            "source", Map.of("label", "Placeholder1", "key", "key1"),
+            "target", Map.of("label", "Placeholder2", "key", "key2")));
+
+    Targets targets = TargetMapper.fromJson(arrayOf(target));
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MATCH);
   }
 
   @Test
-  public void setsDefaultNodeMatchModeForEdgeTargetsToCreate() {
-    JSONObject object = jsonTargetOfType("edge");
-    object.getJSONObject("edge").put("mode", "append");
+  public void sets_default_node_match_mode_for_edge_targets_to_create() {
+    JSONObject target = jsonTargetOfType("edge");
+    JSONObject edge = target.getJSONObject("edge");
+    edge.put("mode", "append");
+    edge.put(
+        "mappings",
+        Map.of(
+            "type", "TYPE",
+            "source", Map.of("label", "Placeholder1", "key", "key1"),
+            "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(object));
+    Targets targets = TargetMapper.fromJson(arrayOf(target));
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
   }
 
   @Test
-  public void rejectsInvalidTarget() {
+  public void rejects_invalid_target() {
     JSONObject invalidObject = jsonTargetOfType("invalid");
 
     Exception exception =
@@ -114,7 +140,7 @@ public class TargetMapperTest {
   }
 
   @Test
-  public void parsesSimpleOrderBy() {
+  public void parses_simple_order_by() {
     JSONObject orderBy = new JSONObject(Map.of("order_by", "col"));
 
     List<OrderBy> clauses = TargetMapper.parseOrderBy(orderBy);
@@ -123,7 +149,7 @@ public class TargetMapperTest {
   }
 
   @Test
-  public void parsesSimpleListOfOrderBy() {
+  public void parses_simple_list_of_order_by() {
     JSONObject orderBy = new JSONObject(Map.of("order_by", "col, col2"));
 
     List<OrderBy> clauses = TargetMapper.parseOrderBy(orderBy);
@@ -132,7 +158,7 @@ public class TargetMapperTest {
   }
 
   @Test
-  public void parsesOrderByWithDirection() {
+  public void parses_order_by_with_direction() {
     JSONObject orderBy = new JSONObject(Map.of("order_by", "col DESC"));
 
     List<OrderBy> clauses = TargetMapper.parseOrderBy(orderBy);
@@ -141,7 +167,7 @@ public class TargetMapperTest {
   }
 
   @Test
-  public void parsesOrderByListWithDirection() {
+  public void parses_order_by_list_with_direction() {
     JSONObject orderBy = new JSONObject(Map.of("order_by", "col DESC, col2 ASC"));
 
     List<OrderBy> clauses = TargetMapper.parseOrderBy(orderBy);

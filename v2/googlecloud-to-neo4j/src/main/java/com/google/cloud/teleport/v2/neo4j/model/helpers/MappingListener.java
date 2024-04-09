@@ -171,7 +171,7 @@ class SingleNodeKeyConstraintListener implements MappingListener {
   }
 
   public List<NodeKeyConstraint> getSchema() {
-    return schema.isEmpty() ? null : schema;
+    return schema;
   }
 
   private void addConstraints() {
