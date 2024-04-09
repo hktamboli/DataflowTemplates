@@ -24,7 +24,6 @@ import com.google.cloud.teleport.v2.neo4j.providers.Provider;
 import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PBegin;
@@ -121,21 +120,20 @@ public class BigQueryImpl implements Provider {
    *
    * @return helper object includes metadata and SQL
    */
-  private SqlQuerySpec getTargetQueryBeamSpec(TargetQuerySpec targetQuerySpec) {
-    Set<String> sourceFieldSet = ModelUtils.getBeamFieldSet(targetQuerySpec.getSourceBeamSchema());
-    String baseSql = getBaseQuery(source);
-    String targetSpecificSql =
-        ModelUtils.getTargetSql(targetQuerySpec.getTarget(), sourceFieldSet, true, baseSql);
+  private SqlQuerySpec getTargetQueryBeamSpec(TargetQuerySpec spec) {
+    var sourceFields = ModelUtils.getBeamFieldSet(spec.getSourceBeamSchema());
+    var target = spec.getTarget();
+    var startNodeTarget = spec.getStartNodeTarget();
+    var endNodeTarget = spec.getEndNodeTarget();
+    String sql =
+        ModelUtils.getTargetSql(
+            target, startNodeTarget, endNodeTarget, sourceFields, true, getBaseQuery(source));
     return new SqlQuerySpecBuilder()
         .readDescription(
-            targetSequence.getSequenceNumber(targetQuerySpec.getTarget())
-                + ": Read from BQ "
-                + targetQuerySpec.getTarget().getName())
+            targetSequence.getSequenceNumber(target) + ": Read from BQ " + target.getName())
         .castDescription(
-            targetSequence.getSequenceNumber(targetQuerySpec.getTarget())
-                + ": Cast to BeamRow "
-                + targetQuerySpec.getTarget().getName())
-        .sql(targetSpecificSql)
+            targetSequence.getSequenceNumber(target) + ": Cast to BeamRow " + target.getName())
+        .sql(sql)
         .build();
   }
 

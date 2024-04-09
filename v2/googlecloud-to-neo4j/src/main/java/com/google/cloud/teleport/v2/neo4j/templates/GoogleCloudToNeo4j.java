@@ -322,12 +322,14 @@ public class GoogleCloudToNeo4j {
       List<RelationshipTarget> relationshipTargets =
           getActiveTargetsBySourceAndType(
               importSpecification, sourceName, RelationshipTarget.class);
-      for (Target target : relationshipTargets) {
-        TargetQuerySpec targetQuerySpec =
+      for (var target : relationshipTargets) {
+        var targetQuerySpec =
             new TargetQuerySpecBuilder()
                 .nullableSourceRows(nullableSourceBeamRows)
                 .sourceBeamSchema(sourceBeamSchema)
                 .target(target)
+                .startNodeTarget(findNodeTargetByName(nodeTargets, target.getStartNodeReference()))
+                .endNodeTarget(findNodeTargetByName(nodeTargets, target.getEndNodeReference()))
                 .build();
         PCollection<Row> preInsertBeamRows;
         String relationshipStepDescription =
@@ -405,6 +407,13 @@ public class GoogleCloudToNeo4j {
 
     // For a Dataflow Flex Template, do NOT waitUntilFinish().
     pipeline.run();
+  }
+
+  private static NodeTarget findNodeTargetByName(List<NodeTarget> nodes, String reference) {
+    return nodes.stream()
+        .filter(target -> reference.equals(target.getName()))
+        .findFirst()
+        .orElse(null);
   }
 
   @SuppressWarnings("unchecked")

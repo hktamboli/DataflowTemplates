@@ -17,12 +17,14 @@ package com.google.cloud.teleport.v2.neo4j.utils;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.LongValue;
@@ -80,12 +82,22 @@ public class ModelUtils {
   }
 
   public static String getTargetSql(
-      Target target, Set<String> fieldNameMap, boolean generateSqlSort) {
-    return getTargetSql(target, fieldNameMap, generateSqlSort, null);
+      Target target,
+      NodeTarget startNodeTarget,
+      NodeTarget endNodeTarget,
+      Set<String> fieldNameMap,
+      boolean generateSqlSort) {
+    return getTargetSql(
+        target, startNodeTarget, endNodeTarget, fieldNameMap, generateSqlSort, null);
   }
 
   public static String getTargetSql(
-      Target target, Set<String> fieldNameMap, boolean generateSqlSort, String baseSql) {
+      Target target,
+      NodeTarget startNodeTarget,
+      NodeTarget endNodeTarget,
+      Set<String> fieldNameMap,
+      boolean generateSqlSort,
+      String baseSql) {
 
     TargetType targetType = target.getTargetType();
     if (targetType != TargetType.NODE && targetType != TargetType.RELATIONSHIP) {
@@ -101,16 +113,18 @@ public class ModelUtils {
       if (generateSqlSort) {
         List<OrderByElement> orderBy = new ArrayList<>();
         if (targetType == TargetType.RELATIONSHIP) {
-          var relationshipTarget = (RelationshipTarget) entityTarget;
-          String endNodeReference = relationshipTarget.getEndNodeReference();
-          NodeTarget endNode = resolveReference(endNodeReference); // TODO
-          for (String key : endNode.getKeyProperties()) {
-            String field = escapeField(key);
+          var reversedMappings =
+              endNodeTarget.getProperties().stream()
+                  .collect(
+                      Collectors.toMap(
+                          PropertyMapping::getTargetProperty, PropertyMapping::getSourceField));
+          for (String key : endNodeTarget.getKeyProperties()) {
+            String field = escapeField(reversedMappings.get(key));
             orderBy.add(
                 new OrderByElement().withExpression(CCJSqlParserUtil.parseExpression(field)));
           }
         }
-        if (orderBy.isEmpty()) {
+        if (orderBy.isEmpty() && transformations != null) {
           for (OrderBy orderByClause : transformations.getOrderByClauses()) {
             orderBy.add(convertToJsqlElement(orderByClause));
           }
@@ -126,8 +140,10 @@ public class ModelUtils {
         // Grouping transform
         List<Aggregation> aggregations = transformations.getAggregations();
         if (transformations.isEnableGrouping() || !aggregations.isEmpty()) {
+          Set<PropertyMapping> allProperties =
+              allPropertyMappings(entityTarget, startNodeTarget, endNodeTarget);
           Column[] groupByFields =
-              entityTarget.getProperties().stream()
+              allProperties.stream()
                   .map(PropertyMapping::getSourceField)
                   .filter(fieldNameMap::contains)
                   .map(field -> new Column(escapeField(field)))
@@ -154,7 +170,7 @@ public class ModelUtils {
           for (Column groupByField : groupByFields) {
             statement.addGroupByColumnReference(groupByField);
           }
-          Integer limit = transformations.getLimit();
+          var limit = transformations.getLimit() != null ? transformations.getLimit() : -1;
           if (limit > -1) {
             statement.setLimit(new Limit().withRowCount(new LongValue(limit)));
           }
@@ -175,8 +191,14 @@ public class ModelUtils {
     }
   }
 
-  private static NodeTarget resolveReference(String endNodeReference) {
-    return null;
+  private static Set<PropertyMapping> allPropertyMappings(
+      EntityTarget entityTarget, NodeTarget startNodeTarget, NodeTarget endNodeTarget) {
+    Set<PropertyMapping> result = new LinkedHashSet<>(entityTarget.getProperties());
+    if (startNodeTarget != null && endNodeTarget != null) {
+      result.addAll(startNodeTarget.getProperties());
+      result.addAll(endNodeTarget.getProperties());
+    }
+    return result;
   }
 
   private static String escapeField(String keyField) {
