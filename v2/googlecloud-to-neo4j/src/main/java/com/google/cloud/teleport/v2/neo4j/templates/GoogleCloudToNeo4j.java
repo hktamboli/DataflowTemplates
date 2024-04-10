@@ -46,13 +46,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.coders.VarIntCoder;
+import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.FileSystems;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.Wait;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -155,7 +154,8 @@ public class GoogleCloudToNeo4j {
     }
     this.neo4jConnection = Json.map(parsingResult, ConnectionParams.class);
 
-    this.importSpecification = JobSpecMapper.fromUri(pipelineOptions.getJobSpecUri());
+    this.importSpecification =
+        JobSpecMapper.fromUri(pipelineOptions.getJobSpecUri(), optionsParams);
     globalSettings = importSpecification.getConfiguration();
 
     ///////////////////////////////////
@@ -302,14 +302,14 @@ public class GoogleCloudToNeo4j {
                 "Query " + nodeStepDescription, provider.queryTargetBeamRows(targetQuerySpec));
 
         preInsertBeamRows
-            .apply(
-                "** Unblocking "
-                    + nodeStepDescription
-                    + "(after "
-                    + String.join(", ", target.getDependencies())
-                    + ")",
-                Wait.on(dependencies(target)))
-            .setCoder(preInsertBeamRows.getCoder())
+            //            .apply(
+            //                "** Unblocking "
+            //                    + nodeStepDescription
+            //                    + "(after "
+            //                    + String.join(", ", target.getDependencies())
+            //                    + ")",
+            //                Wait.on(dependencies(target, coder)))
+            //            .setCoder(preInsertBeamRows.getCoder())
             .apply(
                 "Writing " + nodeStepDescription,
                 new Neo4jRowWriterTransform(
@@ -348,14 +348,14 @@ public class GoogleCloudToNeo4j {
           preInsertBeamRows = nullableSourceBeamRows;
         }
         preInsertBeamRows
-            .apply(
-                "** Unblocking "
-                    + relationshipStepDescription
-                    + "(after "
-                    + String.join(", ", target.getDependencies())
-                    + ")",
-                Wait.on(dependencies(target)))
-            .setCoder(preInsertBeamRows.getCoder())
+            // TODO            .apply(
+            //                "** Unblocking "
+            //                    + relationshipStepDescription
+            //                    + "(after "
+            //                    + String.join(", ", target.getDependencies())
+            //                    + ")",
+            //                Wait.on(dependencies(target, coder)))
+            //            .setCoder(coder)
             .apply(
                 "Writing " + relationshipStepDescription,
                 new Neo4jRowWriterTransform(
@@ -377,14 +377,14 @@ public class GoogleCloudToNeo4j {
 
         PCollection<Row> blockingReturn =
             nullableSourceBeamRows
-                .apply(
-                    "** Unblocking "
-                        + customQueryStepDescription
-                        + "(after "
-                        + String.join(", ", target.getDependencies())
-                        + ")",
-                    Wait.on(dependencies(target)))
-                .setCoder(nullableSourceBeamRows.getCoder())
+                // TODO                .apply(
+                //                    "** Unblocking "
+                //                        + customQueryStepDescription
+                //                        + "(after "
+                //                        + String.join(", ", target.getDependencies())
+                //                        + ")",
+                //                    Wait.on(dependencies(target)))
+                //                .setCoder(coder)
                 .apply(
                     "Writing " + customQueryStepDescription,
                     new Neo4jRowWriterTransform(
@@ -403,7 +403,8 @@ public class GoogleCloudToNeo4j {
         importSpecification.getActions().stream()
             .filter(action -> action.getStage() != ActionStage.START)
             .collect(Collectors.toList());
-    runBeamActions(postLoadActions);
+    // TODO: get coder for row
+    runBeamActions(postLoadActions, defaultActionContext.getCoder());
 
     // For a Dataflow Flex Template, do NOT waitUntilFinish().
     pipeline.run();
@@ -460,7 +461,7 @@ public class GoogleCloudToNeo4j {
     }
   }
 
-  private void runBeamActions(List<Action> actions) {
+  private void runBeamActions(List<Action> actions, Coder<Row> coder) {
     for (Action action : actions) {
       LOG.info("Registering action: {}", action.getName());
       // Get targeted execution context
@@ -482,22 +483,12 @@ public class GoogleCloudToNeo4j {
       // synthetically creating a single tuple collection!
       pipeline
           .apply("** Setup " + action.getName(), Create.of(1))
-          .apply(
-              "** Unblocking " + action.getName() + "(after " + action.getStage() + ")",
-              Wait.on(dependencies(action)))
-          .setCoder(VarIntCoder.of())
+          // TODO          .apply(
+          //              "** Unblocking " + action.getName() + "(after " + action.getStage() + ")",
+          //              Wait.on(dependencies(action)))
+          //          .setCoder(VarIntCoder.of())
           .apply("Running " + action.getName(), ParDo.of(ActionDoFnFactory.of(context)))
-          .setCoder(null); // TODO: get coder for row
+          .setCoder(coder);
     }
-  }
-
-  // TODO
-  private static PCollection<Row> dependencies(Target target) {
-    return null;
-  }
-
-  // TODO
-  private static PCollection<Row> dependencies(Action action) {
-    return null;
   }
 }

@@ -18,10 +18,10 @@ package com.google.cloud.teleport.v2.neo4j.actions.function;
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import com.google.cloud.teleport.v2.neo4j.telemetry.Neo4jTelemetry;
+import com.google.cloud.teleport.v2.neo4j.utils.SerializableSupplier;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Supplier;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.Row;
 import org.apache.commons.lang3.StringUtils;
@@ -37,7 +37,7 @@ public class CypherActionFn extends DoFn<Integer, Row> {
   private static final Logger LOG = LoggerFactory.getLogger(CypherActionFn.class);
 
   private final String cypher;
-  private final Supplier<Neo4jConnection> connectionProvider;
+  private final SerializableSupplier<Neo4jConnection> connectionProvider;
   private final CypherExecutionMode executionMode;
 
   private Neo4jConnection connection;
@@ -48,7 +48,7 @@ public class CypherActionFn extends DoFn<Integer, Row> {
   }
 
   @VisibleForTesting
-  CypherActionFn(ActionContext context, Supplier<Neo4jConnection> connectionProvider) {
+  CypherActionFn(ActionContext context, SerializableSupplier<Neo4jConnection> connectionProvider) {
     CypherAction cypherAction = (CypherAction) context.action;
     String cypher = cypherAction.getQuery();
     if (StringUtils.isEmpty(cypher)) {

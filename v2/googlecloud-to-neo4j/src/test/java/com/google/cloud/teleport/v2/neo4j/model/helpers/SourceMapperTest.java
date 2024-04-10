@@ -17,6 +17,7 @@ package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import java.util.List;
 import org.json.JSONObject;
 import org.junit.Test;
@@ -33,7 +34,7 @@ public class SourceMapperTest {
     json.put("ordered_field_names", "foo, bar,   qix\t\r");
     json.put("data", "foovalue,barvalue,qixvalue");
 
-    Source source = SourceMapper.fromJson(json);
+    Source source = SourceMapper.fromJson(json, new OptionsParams());
 
     assertThat(source).isInstanceOf(InlineTextSource.class);
     InlineTextSource inlineTextSource = (InlineTextSource) source;

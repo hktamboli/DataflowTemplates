@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.schemas.Schema;
+import org.apache.beam.sdk.schemas.Schema.Field;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
 import org.apache.beam.sdk.schemas.logicaltypes.Date;
 import org.apache.beam.sdk.schemas.logicaltypes.DateTime;
@@ -27,6 +28,7 @@ import org.apache.beam.sdk.schemas.logicaltypes.NanosDuration;
 import org.apache.beam.sdk.schemas.logicaltypes.Time;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.importer.v1.targets.EntityTarget;
+import org.neo4j.importer.v1.targets.NodeTarget;
 import org.neo4j.importer.v1.targets.PropertyMapping;
 import org.neo4j.importer.v1.targets.PropertyType;
 import org.neo4j.importer.v1.targets.Target;
@@ -35,7 +37,8 @@ import org.neo4j.importer.v1.targets.TargetType;
 /** Utilities for organizing Bean rows and schema. */
 public class BeamUtils {
 
-  public static Schema toBeamSchema(Target target) {
+  public static Schema toBeamSchema(
+      Target target, NodeTarget startNodeTarget, NodeTarget endNodeTarget) {
     TargetType targetType = target.getTargetType();
     if (targetType == TargetType.QUERY) {
       return new Schema(new ArrayList<>());
@@ -47,7 +50,8 @@ public class BeamUtils {
     EntityTarget entityTarget = (EntityTarget) target;
 
     List<Schema.Field> fields = new ArrayList<>();
-    for (PropertyMapping mapping : entityTarget.getProperties()) {
+    for (PropertyMapping mapping :
+        ModelUtils.allPropertyMappings(entityTarget, startNodeTarget, endNodeTarget)) {
       // map source column names to order
       String field = mapping.getSourceField();
       if (StringUtils.isEmpty(field)) {
@@ -56,6 +60,10 @@ public class BeamUtils {
       }
       Schema.Field schemaField;
       PropertyType propertyType = mapping.getTargetPropertyType();
+      if (propertyType == null) {
+        fields.add(defaultFieldSchema(field));
+        continue;
+      }
       switch (propertyType) {
         case BOOLEAN:
           schemaField = Schema.Field.nullable(field, FieldType.BOOLEAN);
@@ -144,5 +152,9 @@ public class BeamUtils {
         fields.stream()
             .map(field -> Schema.Field.of(field, FieldType.STRING))
             .collect(Collectors.toList()));
+  }
+
+  private static Field defaultFieldSchema(String field) {
+    return Field.nullable(field, FieldType.STRING);
   }
 }

@@ -30,7 +30,6 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
-import org.neo4j.importer.v1.targets.Target;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,20 +59,19 @@ public class TextTargetToRow extends PTransform<PBegin, PCollection<Row>> {
     Schema sourceSchema = targetQuerySpec.getSourceBeamSchema();
     Set<String> sourceFieldSet = ModelUtils.getBeamFieldSet(sourceSchema);
 
-    Target target = targetQuerySpec.getTarget();
-    Schema targetSchema = BeamUtils.toBeamSchema(target);
-    DoFn<Row, Row> castToTargetRow = new CastExpandTargetRowFn(target, targetSchema);
+    var target = targetQuerySpec.getTarget();
+    var startNodeTarget = targetQuerySpec.getStartNodeTarget();
+    var endNodeTarget = targetQuerySpec.getEndNodeTarget();
+    var targetSchema = BeamUtils.toBeamSchema(target, startNodeTarget, endNodeTarget);
+    DoFn<Row, Row> castToTargetRow =
+        new CastExpandTargetRowFn(target, startNodeTarget, endNodeTarget, targetSchema);
 
     // conditionally apply sql to rows.
     if (ModelUtils.targetHasTransforms(target)) {
       String sql =
           getRewritten(
               ModelUtils.getTargetSql(
-                  target,
-                  targetQuerySpec.getStartNodeTarget(),
-                  targetQuerySpec.getEndNodeTarget(),
-                  sourceFieldSet,
-                  false));
+                  target, startNodeTarget, endNodeTarget, sourceFieldSet, false));
       LOG.info("Target schema: {}", targetSchema);
       LOG.info("Executing SQL on PCOLLECTION: {}", sql);
       PCollection<Row> sqlDataRow =

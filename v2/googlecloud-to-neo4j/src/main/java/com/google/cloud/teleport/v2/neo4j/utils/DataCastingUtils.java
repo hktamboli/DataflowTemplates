@@ -48,8 +48,7 @@ import org.apache.beam.sdk.schemas.logicaltypes.Time;
 import org.apache.beam.sdk.values.Row;
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.ReadableInstant;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
+import org.neo4j.importer.v1.targets.NodeTarget;
 import org.neo4j.importer.v1.targets.Target;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,13 +76,10 @@ public class DataCastingUtils {
    */
   private static final Logger LOG = LoggerFactory.getLogger(DataCastingUtils.class);
 
-  private static final DateTimeFormatter jsDateTimeFormatter =
-      DateTimeFormat.forPattern("YYYY-MM-dd HH:mm:ssZ");
-  private static final DateTimeFormatter jsDateFormatter = DateTimeFormat.forPattern("YYYY-MM-dd");
-
-  public static List<Object> sourceTextToTargetObjects(Row row, Target target) {
+  public static List<Object> sourceTextToTargetObjects(
+      Row row, Target target, NodeTarget startNodeTarget, NodeTarget endNodeTarget) {
     List<Object> castVals = new ArrayList<>();
-    Schema targetSchema = BeamUtils.toBeamSchema(target);
+    Schema targetSchema = BeamUtils.toBeamSchema(target, startNodeTarget, endNodeTarget);
 
     List<String> missingFields = new ArrayList<>();
 

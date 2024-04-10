@@ -191,7 +191,7 @@ public class ModelUtils {
     }
   }
 
-  private static Set<PropertyMapping> allPropertyMappings(
+  public static Set<PropertyMapping> allPropertyMappings(
       EntityTarget entityTarget, NodeTarget startNodeTarget, NodeTarget endNodeTarget) {
     Set<PropertyMapping> result = new LinkedHashSet<>(entityTarget.getProperties());
     if (startNodeTarget != null && endNodeTarget != null) {

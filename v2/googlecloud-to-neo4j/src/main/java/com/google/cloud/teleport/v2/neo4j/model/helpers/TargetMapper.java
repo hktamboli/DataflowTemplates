@@ -28,6 +28,8 @@ import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.par
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.SourceMapper.DEFAULT_SOURCE_NAME;
 
 import com.google.cloud.teleport.v2.neo4j.model.enums.TargetType;
+import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
+import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -58,7 +60,7 @@ import org.neo4j.importer.v1.targets.WriteMode;
 public class TargetMapper {
   private static final Pattern ORDER_PATTERN = Pattern.compile("\\basc|desc\\b");
 
-  public static Targets fromJson(JSONArray json) {
+  public static Targets fromJson(JSONArray json, OptionsParams options) {
     // TODO: inject default name if (active) target name is empty (see InputRefactoring)
     List<NodeTarget> nodes = new ArrayList<>();
     List<RelationshipTarget> relationshipTargets = new ArrayList<>();
@@ -74,7 +76,7 @@ public class TargetMapper {
         continue;
       }
       if (target.has("custom_query")) {
-        queryTargets.add(parseCustomQuery(target.getJSONObject("custom_query")));
+        queryTargets.add(parseCustomQuery(target.getJSONObject("custom_query"), options));
         continue;
       }
       throw invalidTargetException(target);
@@ -123,13 +125,15 @@ public class TargetMapper {
         parseEdgeSchema(targetName, relationshipType, mappings));
   }
 
-  private static CustomQueryTarget parseCustomQuery(JSONObject query) {
+  private static CustomQueryTarget parseCustomQuery(JSONObject query, OptionsParams options) {
+    String cypher =
+        ModelUtils.replaceVariableTokens(query.getString("query"), options.getTokenMap());
     return new CustomQueryTarget(
         getBooleanOrDefault(query, "active", true),
         query.getString("name"),
         getStringOrDefault(query, "source", DEFAULT_SOURCE_NAME),
         null, // TODO: process dependencies
-        query.getString("query"));
+        cypher);
   }
 
   private static SourceTransformations parseSourceTransformations(JSONObject json) {

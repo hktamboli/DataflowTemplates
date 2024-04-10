@@ -15,6 +15,7 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
+import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import com.google.cloud.teleport.v2.neo4j.utils.FileSystemUtils;
 import java.io.StringReader;
 import java.util.List;
@@ -36,12 +37,12 @@ import org.slf4j.LoggerFactory;
 public class JobSpecMapper {
   private static final Logger LOG = LoggerFactory.getLogger(JobSpecMapper.class);
 
-  public static ImportSpecification fromUri(String jobSpecUri) {
-
+  public static ImportSpecification fromUri(String jobSpecUri, OptionsParams options) {
     String rawJson = fetchContent(jobSpecUri);
     var json = new JSONObject(rawJson);
     if (json.has("version")) {
       try {
+        // TODO: read query + input file pattern + runtime tokens for new spec
         return ImportSpecificationDeserializer.deserialize(new StringReader(rawJson));
       } catch (SpecificationException e) {
         throw new RuntimeException("Unable to parse Neo4j job specification", e);
@@ -49,10 +50,9 @@ public class JobSpecMapper {
     }
     // legacy JSON conversion to new specification
     Map<String, Object> config = json.has("config") ? json.getJSONObject("config").toMap() : null;
-    List<Source> sources = parseSources(json);
-    Targets targets = parseTargets(json);
-    List<Action> actions = parseActions(json);
-    // TODO: interpolate runtime tokens
+    List<Source> sources = parseSources(json, options);
+    Targets targets = parseTargets(json, options);
+    List<Action> actions = parseActions(json, options);
     // TODO: validate
     return new ImportSpecification("0.legacy", config, sources, targets, actions);
   }
@@ -66,28 +66,29 @@ public class JobSpecMapper {
     }
   }
 
-  private static List<Source> parseSources(JSONObject json) {
+  private static List<Source> parseSources(JSONObject json, OptionsParams options) {
     if (json.has("source")) {
-      return List.of(SourceMapper.fromJson(json.getJSONObject("source")));
+      return List.of(SourceMapper.fromJson(json.getJSONObject("source"), options));
     }
     if (json.has("sources")) {
-      return SourceMapper.fromJson(json.getJSONArray("sources"));
+      return SourceMapper.fromJson(json.getJSONArray("sources"), options);
     }
     return List.of();
   }
 
-  private static Targets parseTargets(JSONObject json) {
+  private static Targets parseTargets(JSONObject json, OptionsParams options) {
     if (!json.has("targets")) {
+      // TODO: throw instead?
       return new Targets(null, null, null);
     }
     // TODO: add missing support for index_all_properties
-    return TargetMapper.fromJson(json.getJSONArray("targets"));
+    return TargetMapper.fromJson(json.getJSONArray("targets"), options);
   }
 
-  private static List<Action> parseActions(JSONObject json) {
+  private static List<Action> parseActions(JSONObject json, OptionsParams options) {
     if (!json.has("actions")) {
       return List.of();
     }
-    return ActionMapper.fromJson(json.getJSONArray("actions"));
+    return ActionMapper.fromJson(json.getJSONArray("actions"), options);
   }
 }

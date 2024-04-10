@@ -18,6 +18,7 @@ package com.google.cloud.teleport.v2.neo4j.model.helpers;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,7 +44,7 @@ public class TargetMapperTest {
     transform.put("group", true);
     customObject.put("transform", transform); // ignored
 
-    Targets targets = TargetMapper.fromJson(arrayOf(jsonTarget));
+    Targets targets = TargetMapper.fromJson(arrayOf(jsonTarget), new OptionsParams());
 
     assertThat(targets.getNodes()).isEmpty();
     assertThat(targets.getRelationships()).isEmpty();
@@ -65,7 +66,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target));
+    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -84,7 +85,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target));
+    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -102,7 +103,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target));
+    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MATCH);
@@ -120,7 +121,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target));
+    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -132,7 +133,8 @@ public class TargetMapperTest {
 
     Exception exception =
         assertThrows(
-            IllegalArgumentException.class, () -> TargetMapper.fromJson(arrayOf(invalidObject)));
+            IllegalArgumentException.class,
+            () -> TargetMapper.fromJson(arrayOf(invalidObject), new OptionsParams()));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo(

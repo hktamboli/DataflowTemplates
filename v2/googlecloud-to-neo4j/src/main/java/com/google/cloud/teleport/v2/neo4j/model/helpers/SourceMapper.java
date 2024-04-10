@@ -18,6 +18,8 @@ package com.google.cloud.teleport.v2.neo4j.model.helpers;
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getStringOrDefault;
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getStringOrNull;
 
+import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
+import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import com.google.cloud.teleport.v2.neo4j.utils.TextParserUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,27 +47,27 @@ public class SourceMapper {
   static final String DEFAULT_SOURCE_NAME = "";
   static final Pattern NEWLINE_PATTERN = Pattern.compile("\\R");
 
-  public static List<Source> fromJson(JSONArray rawSources) {
+  public static List<Source> fromJson(JSONArray rawSources, OptionsParams options) {
     List<Source> sources = new ArrayList<>(rawSources.length());
     for (int i = 0; i < rawSources.length(); i++) {
-      sources.add(fromJson(rawSources.getJSONObject(i)));
+      sources.add(fromJson(rawSources.getJSONObject(i), options));
     }
     return sources;
   }
 
-  public static Source fromJson(JSONObject rawSource) {
+  public static Source fromJson(JSONObject rawSource, OptionsParams options) {
     var sourceType = getStringOrDefault(rawSource, "type", "text");
     switch (sourceType) {
       case "text":
-        return parseTextSource(rawSource);
+        return parseTextSource(rawSource, options);
       case "bigquery":
-        return parseBigQuerySource(rawSource);
+        return parseBigQuerySource(rawSource, options);
       default:
         throw new RuntimeException(String.format("Unsupported source type: %s", sourceType));
     }
   }
 
-  private static TextSource parseTextSource(JSONObject rawSource) {
+  private static TextSource parseTextSource(JSONObject rawSource, OptionsParams options) {
     var sourceName = getStringOrDefault(rawSource, "name", DEFAULT_SOURCE_NAME);
     var header =
         Arrays.asList(StringUtils.stripAll(rawSource.getString("ordered_field_names").split(",")));
@@ -76,6 +78,10 @@ public class SourceMapper {
     var separator = getStringOrNull(rawSource, "separator");
     if (rawSource.has("uri") || rawSource.has("url")) {
       var url = rawSource.has("uri") ? rawSource.getString("uri") : rawSource.getString("url");
+      if (StringUtils.isNotEmpty(options.getInputFilePattern())) {
+        url = options.getInputFilePattern();
+      }
+      url = ModelUtils.replaceVariableTokens(url, options.getTokenMap());
       return new ExternalTextSource(sourceName, List.of(url), header, format, delimiter, separator);
     }
 
@@ -105,8 +111,13 @@ public class SourceMapper {
     return new InlineTextSource(sourceName, data, header);
   }
 
-  private static BigQuerySource parseBigQuerySource(JSONObject rawSource) {
+  private static BigQuerySource parseBigQuerySource(JSONObject rawSource, OptionsParams options) {
     var sourceName = getStringOrDefault(rawSource, "name", DEFAULT_SOURCE_NAME);
-    return new BigQuerySource(sourceName, rawSource.getString("query"));
+    String sql = rawSource.getString("query");
+    if (StringUtils.isNotEmpty(options.getReadQuery())) {
+      sql = options.getReadQuery();
+    }
+    sql = ModelUtils.replaceVariableTokens(sql, options.getTokenMap());
+    return new BigQuerySource(sourceName, sql);
   }
 }

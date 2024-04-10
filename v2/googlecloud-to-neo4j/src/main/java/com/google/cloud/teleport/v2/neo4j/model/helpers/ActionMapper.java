@@ -15,6 +15,8 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
+import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
+import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,54 +39,55 @@ import org.neo4j.importer.v1.actions.HttpMethod;
 @Deprecated
 public class ActionMapper {
 
-  public static List<Action> fromJson(JSONArray json) {
+  public static List<Action> fromJson(JSONArray json, OptionsParams options) {
     List<Action> actions = new ArrayList<>(json.length());
     for (int i = 0; i < json.length(); i++) {
-      actions.add(fromJson(json.getJSONObject(i)));
+      actions.add(fromJson(json.getJSONObject(i), options));
     }
     return actions;
   }
 
-  private static Action fromJson(JSONObject json) {
+  private static Action fromJson(JSONObject json, OptionsParams options) {
     String type = json.getString("type").toLowerCase(Locale.ROOT);
     boolean active = JsonObjects.getBooleanOrDefault(json, "active", true);
     String name = json.getString("name");
-    var options = json.getJSONArray("options");
-    if (options.length() != 1) {
+    var actionOptions = json.getJSONArray("options");
+    if (actionOptions.length() != 1) {
       throw new IllegalArgumentException(
-          String.format("Expected a single option for Cypher query, got %d", options.length()));
+          String.format(
+              "Expected a single option for Cypher query, got %d", actionOptions.length()));
     }
-    var option = options.getJSONObject(0);
+    var option = actionOptions.getJSONObject(0);
     switch (type) {
       case "cypher":
         return new CypherAction(
             active,
             name,
             null, // TODO: stage
-            option.getString("cypher"),
+            ModelUtils.replaceVariableTokens(option.getString("cypher"), options.getTokenMap()),
             CypherExecutionMode.AUTOCOMMIT);
       case "bigquery":
         return new BigQueryAction(
             active,
             name,
             null, // TODO: stage
-            option.getString("sql"));
+            ModelUtils.replaceVariableTokens(option.getString("sql"), options.getTokenMap()));
       case "http_get":
         return new HttpAction(
             active,
             name,
             null, // TODO: stage
-            option.getString("url"),
+            ModelUtils.replaceVariableTokens(option.getString("url"), options.getTokenMap()),
             HttpMethod.GET,
-            ensureStringValues(json.getJSONObject("headers").toMap()));
+            processValues(json.getJSONObject("headers").toMap(), options));
       case "http_post":
         return new HttpAction(
             active,
             name,
             null, // TODO: stage
-            option.getString("url"),
+            ModelUtils.replaceVariableTokens(option.getString("url"), options.getTokenMap()),
             HttpMethod.POST,
-            ensureStringValues(json.getJSONObject("headers").toMap()));
+            processValues(json.getJSONObject("headers").toMap(), options));
       default:
         throw new IllegalArgumentException(
             String.format(
@@ -93,10 +96,11 @@ public class ActionMapper {
     }
   }
 
-  private static Map<String, String> ensureStringValues(Map<String, Object> map) {
+  private static Map<String, String> processValues(Map<String, Object> map, OptionsParams options) {
     Map<String, String> result = new HashMap<>(map.size());
     for (String key : map.keySet()) {
-      result.put(key, (String) map.get("key"));
+      String value = (String) map.get("key");
+      result.put(key, ModelUtils.replaceVariableTokens(value, options.getTokenMap()));
     }
     return result;
   }

@@ -542,7 +542,8 @@ public class DataCastingUtilsTest {
                 mapping("bytes", PropertyType.BYTE_ARRAY)),
             null);
 
-    List<Object> convertedList = DataCastingUtils.sourceTextToTargetObjects(row, target);
+    List<Object> convertedList =
+        DataCastingUtils.sourceTextToTargetObjects(row, target, null, null);
     assertThat(convertedList)
         .comparingElementsUsing(Correspondence.from(Objects::deepEquals, "deep equals"))
         .containsExactly(
