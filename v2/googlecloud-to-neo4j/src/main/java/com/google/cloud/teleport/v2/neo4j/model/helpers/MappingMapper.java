@@ -22,11 +22,11 @@ import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingVisitor.vi
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.SourceMapper.DEFAULT_SOURCE_NAME;
 import static org.neo4j.importer.v1.targets.PropertyType.BOOLEAN;
 import static org.neo4j.importer.v1.targets.PropertyType.BYTE_ARRAY;
-import static org.neo4j.importer.v1.targets.PropertyType.DATE;
 import static org.neo4j.importer.v1.targets.PropertyType.FLOAT;
 import static org.neo4j.importer.v1.targets.PropertyType.INTEGER;
 import static org.neo4j.importer.v1.targets.PropertyType.POINT;
 import static org.neo4j.importer.v1.targets.PropertyType.STRING;
+import static org.neo4j.importer.v1.targets.PropertyType.ZONED_DATETIME;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -144,7 +144,8 @@ public class MappingMapper {
     if (properties.has("dates")) {
       var listener =
           new PropertyMappingListener(
-              indexedMappings, (field, property) -> new PropertyMapping(field, property, DATE));
+              indexedMappings,
+              (field, property) -> new PropertyMapping(field, property, ZONED_DATETIME));
       visit(properties.get("dates"), listener);
     }
     if (properties.has("doubles")) {

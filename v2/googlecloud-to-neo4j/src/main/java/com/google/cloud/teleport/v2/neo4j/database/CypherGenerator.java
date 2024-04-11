@@ -100,12 +100,12 @@ public class CypherGenerator {
     String nodeClause = relationship.getNodeMatchMode().name();
     NodeTarget startNode =
         resolveRelationshipNode(importSpecification, relationship.getStartNodeReference());
-    CypherPatterns startNodePatterns =
-        CypherPatterns.parsePatterns(startNode, "start", ROW_VARIABLE_NAME);
+    String startNodeKeys =
+        CypherPatterns.parsePatterns(startNode, "start", ROW_VARIABLE_NAME).keysPattern();
     NodeTarget endNode =
         resolveRelationshipNode(importSpecification, relationship.getEndNodeReference());
-    CypherPatterns endNodePatterns =
-        CypherPatterns.parsePatterns(endNode, "end", ROW_VARIABLE_NAME);
+    String endNodeKeys =
+        CypherPatterns.parsePatterns(endNode, "end", ROW_VARIABLE_NAME).keysPattern();
     String relationshipClause = relationship.getWriteMode().name();
     CypherPatterns relationshipPatterns =
         CypherPatterns.parsePatterns(relationship, "r", ROW_VARIABLE_NAME);
@@ -120,18 +120,14 @@ public class CypherGenerator {
         + nodeClause
         + " (start"
         + CypherPatterns.labels(startNode.getLabels())
-        + " {"
-        + startNodePatterns.keysPattern()
-        + "})"
-        + startNodePatterns.nonKeysSetClause()
+        + (startNodeKeys.isEmpty() ? "" : " {" + startNodeKeys + "}")
+        + ")"
         + " "
         + nodeClause
         + " (end"
         + CypherPatterns.labels(endNode.getLabels())
-        + " {"
-        + endNodePatterns.keysPattern()
-        + "})"
-        + endNodePatterns.nonKeysSetClause()
+        + (endNodeKeys.isEmpty() ? "" : " {" + endNodeKeys + "}")
+        + ")"
         + " "
         + relationshipClause
         + " (start)-[r:"
