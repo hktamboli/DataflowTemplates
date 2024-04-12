@@ -15,7 +15,6 @@
  */
 package com.google.cloud.teleport.v2.neo4j.utils;
 
-import com.google.cloud.teleport.v2.neo4j.model.enums.ActionExecuteAfter;
 import com.google.cloud.teleport.v2.neo4j.model.enums.ArtifactType;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,7 +24,6 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.Row;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,8 +86,7 @@ public class BeamBlock {
     return defaultCollection;
   }
 
-  public PCollection<Row> waitOnCollections(
-      List<String> dependencies, String queuingDescription) {
+  public PCollection<Row> waitOnCollections(List<String> dependencies, String queuingDescription) {
     List<PCollection<Row>> waitOnQueues = populateQueueForTargets(dependencies);
     if (waitOnQueues.isEmpty()) {
       waitOnQueues.add(defaultCollection);
@@ -105,11 +102,7 @@ public class BeamBlock {
             + " queues");
     return PCollectionList.of(waitOnQueues)
         .apply(
-            "** Waiting "
-                + queuingDescription
-                + " (after "
-                + String.join(", ", dependencies)
-                + ")",
+            "** Waiting " + queuingDescription + " (after " + String.join(", ", dependencies) + ")",
             Flatten.pCollections());
   }
 

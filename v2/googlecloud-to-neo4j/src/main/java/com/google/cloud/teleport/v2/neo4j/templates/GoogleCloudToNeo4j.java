@@ -267,7 +267,7 @@ public class GoogleCloudToNeo4j {
               String.format("Metadata for source %s", source.getName()), provider.queryMetadata());
       Schema sourceBeamSchema = sourceMetadata.getSchema();
       processingQueue.addToQueue(
-              ArtifactType.source, false, source.getName(), defaultActionContext, sourceMetadata);
+          ArtifactType.source, false, source.getName(), defaultActionContext, sourceMetadata);
       PCollection<Row> nullableSourceBeamRows = null;
 
       ////////////////////////////
@@ -309,26 +309,30 @@ public class GoogleCloudToNeo4j {
             pipeline.apply(
                 "Query " + nodeStepDescription, provider.queryTargetBeamRows(targetQuerySpec));
 
-        PCollection<Row> blockingReturn = preInsertBeamRows
+        PCollection<Row> blockingReturn =
+            preInsertBeamRows
                 .apply(
-                        "** Unblocking "
+                    "** Unblocking "
                         + nodeStepDescription
                         + "(after "
                         + String.join(", ", target.getDependencies())
                         + ")",
-                        Wait.on(
-                                processingQueue.waitOnCollections(
-                                        target.getDependencies(),
-                                        nodeStepDescription)))
+                    Wait.on(
+                        processingQueue.waitOnCollections(
+                            target.getDependencies(), nodeStepDescription)))
                 .setCoder(preInsertBeamRows.getCoder())
                 .apply(
-                        "Writing " + nodeStepDescription,
-                        new Neo4jRowWriterTransform(
-                                importSpecification, neo4jConnection, templateVersion, targetSequence, target))
+                    "Writing " + nodeStepDescription,
+                    new Neo4jRowWriterTransform(
+                        importSpecification,
+                        neo4jConnection,
+                        templateVersion,
+                        targetSequence,
+                        target))
                 .setCoder(preInsertBeamRows.getCoder());
 
         processingQueue.addToQueue(
-                ArtifactType.node, false, target.getName(), blockingReturn, preInsertBeamRows);
+            ArtifactType.node, false, target.getName(), blockingReturn, preInsertBeamRows);
       }
 
       ////////////////////////////
@@ -361,31 +365,31 @@ public class GoogleCloudToNeo4j {
         } else {
           preInsertBeamRows = nullableSourceBeamRows;
         }
-        PCollection<Row> blockingReturn = preInsertBeamRows
+        PCollection<Row> blockingReturn =
+            preInsertBeamRows
                 .apply(
-                        "** Unblocking "
+                    "** Unblocking "
                         + relationshipStepDescription
                         + "(after "
                         + String.join(", ", target.getDependencies())
                         + ")",
-                        Wait.on(
-                                processingQueue.waitOnCollections(
-                                        target.getDependencies(),
-                                        relationshipStepDescription)))
+                    Wait.on(
+                        processingQueue.waitOnCollections(
+                            target.getDependencies(), relationshipStepDescription)))
                 .setCoder(preInsertBeamRows.getCoder())
                 .apply(
-                        "Writing " + relationshipStepDescription,
-                        new Neo4jRowWriterTransform(
-                                importSpecification, neo4jConnection, templateVersion, targetSequence, target))
+                    "Writing " + relationshipStepDescription,
+                    new Neo4jRowWriterTransform(
+                        importSpecification,
+                        neo4jConnection,
+                        templateVersion,
+                        targetSequence,
+                        target))
                 .setCoder(preInsertBeamRows.getCoder());
 
         // serialize relationships
         processingQueue.addToQueue(
-                ArtifactType.edge,
-                false,
-                target.getName(),
-                blockingReturn,
-                preInsertBeamRows);
+            ArtifactType.edge, false, target.getName(), blockingReturn, preInsertBeamRows);
       }
       ////////////////////////////
       // Custom query targets
@@ -402,17 +406,16 @@ public class GoogleCloudToNeo4j {
 
         PCollection<Row> blockingReturn =
             nullableSourceBeamRows
-                    .apply(
-                            "** Unblocking "
-                            + customQueryStepDescription
-                            + "(after "
-                            + String.join(", ", target.getDependencies())
-                            + ")",
-                            Wait.on(
-                                    processingQueue.waitOnCollections(
-                                            target.getDependencies(),
-                                            customQueryStepDescription)))
-                    .setCoder(nullableSourceBeamRows.getCoder())
+                .apply(
+                    "** Unblocking "
+                        + customQueryStepDescription
+                        + "(after "
+                        + String.join(", ", target.getDependencies())
+                        + ")",
+                    Wait.on(
+                        processingQueue.waitOnCollections(
+                            target.getDependencies(), customQueryStepDescription)))
+                .setCoder(nullableSourceBeamRows.getCoder())
                 .apply(
                     "Writing " + customQueryStepDescription,
                     new Neo4jRowWriterTransform(
@@ -424,11 +427,11 @@ public class GoogleCloudToNeo4j {
                 .setCoder(nullableSourceBeamRows.getCoder());
 
         processingQueue.addToQueue(
-                ArtifactType.custom_query,
-                false,
-                target.getName(),
-                blockingReturn,
-                nullableSourceBeamRows);
+            ArtifactType.custom_query,
+            false,
+            target.getName(),
+            blockingReturn,
+            nullableSourceBeamRows);
       }
     }
 

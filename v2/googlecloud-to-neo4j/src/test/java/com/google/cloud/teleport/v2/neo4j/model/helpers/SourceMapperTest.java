@@ -34,7 +34,7 @@ public class SourceMapperTest {
     json.put("ordered_field_names", "foo, bar,   qix\t\r");
     json.put("data", "foovalue,barvalue,qixvalue");
 
-    Source source = SourceMapper.fromJson(json, new OptionsParams());
+    Source source = SourceMapper.parse(json, new OptionsParams());
 
     assertThat(source).isInstanceOf(InlineTextSource.class);
     InlineTextSource inlineTextSource = (InlineTextSource) source;

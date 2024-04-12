@@ -18,7 +18,7 @@ package com.google.cloud.teleport.v2.neo4j.model.helpers;
 import java.util.function.Supplier;
 import org.json.JSONObject;
 
-public class JsonObjects {
+class JsonObjects {
 
   public static String getStringOrNull(JSONObject object, String property) {
     return getStringOrDefault(object, property, null);

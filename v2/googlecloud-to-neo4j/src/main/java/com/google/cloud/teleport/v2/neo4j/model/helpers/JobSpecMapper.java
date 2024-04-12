@@ -20,12 +20,11 @@ import com.google.cloud.teleport.v2.neo4j.utils.FileSystemUtils;
 import java.io.StringReader;
 import java.util.List;
 import java.util.Map;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.neo4j.importer.v1.ImportSpecification;
 import org.neo4j.importer.v1.ImportSpecificationDeserializer;
-import org.neo4j.importer.v1.actions.Action;
 import org.neo4j.importer.v1.sources.Source;
-import org.neo4j.importer.v1.targets.Targets;
 import org.neo4j.importer.v1.validation.SpecificationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,23 +37,30 @@ public class JobSpecMapper {
   private static final Logger LOG = LoggerFactory.getLogger(JobSpecMapper.class);
 
   public static ImportSpecification fromUri(String jobSpecUri, OptionsParams options) {
-    String rawJson = fetchContent(jobSpecUri);
-    var json = new JSONObject(rawJson);
-    if (json.has("version")) {
+    var json = fetchContent(jobSpecUri);
+    var spec = new JSONObject(json);
+    if (spec.has("version")) {
       try {
         // TODO: read query + input file pattern + runtime tokens for new spec
-        return ImportSpecificationDeserializer.deserialize(new StringReader(rawJson));
+        return ImportSpecificationDeserializer.deserialize(new StringReader(json));
       } catch (SpecificationException e) {
         throw new RuntimeException("Unable to parse Neo4j job specification", e);
       }
     }
-    // legacy JSON conversion to new specification
-    Map<String, Object> config = json.has("config") ? json.getJSONObject("config").toMap() : null;
-    List<Source> sources = parseSources(json, options);
-    Targets targets = parseTargets(json, options);
-    List<Action> actions = parseActions(json, options);
+
+    LOG.info("Converting legacy JSON job spec to new import specification format");
+    var index = new JobSpecNameIndex();
+    var targets = extractTargets(spec);
+    TargetMapper.index(targets, index);
+    var actions = extractActions(spec);
+    ActionMapper.index(actions, index);
     // TODO: validate
-    return new ImportSpecification("0.legacy", config, sources, targets, actions);
+    return new ImportSpecification(
+        "0.legacy",
+        parseConfig(spec),
+        parseSources(spec, options),
+        TargetMapper.parse(targets, options),
+        ActionMapper.parse(actions, options));
   }
 
   private static String fetchContent(String jobSpecUri) {
@@ -66,29 +72,31 @@ public class JobSpecMapper {
     }
   }
 
+  private static Map<String, Object> parseConfig(JSONObject json) {
+    return json.has("config") ? json.getJSONObject("config").toMap() : null;
+  }
+
   private static List<Source> parseSources(JSONObject json, OptionsParams options) {
     if (json.has("source")) {
-      return List.of(SourceMapper.fromJson(json.getJSONObject("source"), options));
+      return List.of(SourceMapper.parse(json.getJSONObject("source"), options));
     }
     if (json.has("sources")) {
-      return SourceMapper.fromJson(json.getJSONArray("sources"), options);
+      return SourceMapper.parse(json.getJSONArray("sources"), options);
     }
     return List.of();
   }
 
-  private static Targets parseTargets(JSONObject json, OptionsParams options) {
-    if (!json.has("targets")) {
-      // TODO: throw instead?
-      return new Targets(null, null, null);
+  private static JSONArray extractTargets(JSONObject spec) {
+    if (!spec.has("targets")) {
+      throw new IllegalArgumentException("could not find any targets");
     }
-    // TODO: add missing support for index_all_properties
-    return TargetMapper.fromJson(json.getJSONArray("targets"), options);
+    return spec.getJSONArray("targets");
   }
 
-  private static List<Action> parseActions(JSONObject json, OptionsParams options) {
-    if (!json.has("actions")) {
-      return List.of();
+  private static JSONArray extractActions(JSONObject spec) {
+    if (!spec.has("actions")) {
+      return new JSONArray(0);
     }
-    return ActionMapper.fromJson(json.getJSONArray("actions"), options);
+    return spec.getJSONArray("actions");
   }
 }

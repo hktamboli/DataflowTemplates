@@ -27,6 +27,7 @@ import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.par
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseType;
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.SourceMapper.DEFAULT_SOURCE_NAME;
 
+import com.google.cloud.teleport.v2.neo4j.model.enums.ArtifactType;
 import com.google.cloud.teleport.v2.neo4j.model.enums.TargetType;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
@@ -57,58 +58,98 @@ import org.neo4j.importer.v1.targets.WriteMode;
  * @deprecated use the current JSON format instead
  */
 @Deprecated
-public class TargetMapper {
+class TargetMapper {
   private static final Pattern ORDER_PATTERN = Pattern.compile("\\basc|desc\\b");
 
-  public static Targets fromJson(JSONArray json, OptionsParams options) {
-    // TODO: inject default name if (active) target name is empty (see InputRefactoring)
-    List<NodeTarget> nodes = new ArrayList<>();
-    List<RelationshipTarget> relationshipTargets = new ArrayList<>();
-    List<CustomQueryTarget> queryTargets = new ArrayList<>();
+  public static void index(JSONArray json, JobSpecNameIndex index) {
+    // contrary to parse, embedded node definitions do not matter here as they cannot be depended
+    // upon
     for (int i = 0; i < json.length(); i++) {
       var target = json.getJSONObject(i);
       if (target.has("node")) {
-        nodes.add(parseNode(target.getJSONObject("node")));
+        var node = target.getJSONObject("node");
+        index.trackNode(normalizeName(i, node.getString("name"), ArtifactType.node));
         continue;
       }
       if (target.has("edge")) {
-        relationshipTargets.add(parseEdge(target.getJSONObject("edge"), nodes));
+        var edge = target.getJSONObject("edge");
+        index.trackEdge(normalizeName(i, edge.getString("name"), ArtifactType.edge));
         continue;
       }
       if (target.has("custom_query")) {
-        queryTargets.add(parseCustomQuery(target.getJSONObject("custom_query"), options));
+        var query = target.getJSONObject("custom_query");
+        index.trackCustomQuery(
+            normalizeName(i, query.getString("name"), ArtifactType.custom_query));
+      }
+    }
+  }
+
+  public static Targets parse(JSONArray json, OptionsParams options) {
+    // TODO: add missing support for index_all_properties
+    List<NodeTarget> nodes = new ArrayList<>();
+    List<RelationshipTarget> relationshipTargets = new ArrayList<>();
+    List<CustomQueryTarget> queryTargets = new ArrayList<>();
+
+    // first pass: go through all nodes
+    for (int i = 0; i < json.length(); i++) {
+      var target = json.getJSONObject(i);
+      if (!target.has("node")) {
         continue;
       }
-      throw invalidTargetException(target);
+      nodes.add(parseNode(i, target.getJSONObject("node")));
+    }
+
+    // second pass: go through edge targets' source/target nodes
+    for (int i = 0; i < json.length(); i++) {
+      var target = json.getJSONObject(i);
+      if (!target.has("edge")) {
+        continue;
+      }
+      var edge = target.getJSONObject("edge");
+      var matchMode = parseNodeMatchMode(edge, parseWriteMode(edge.getString("mode")));
+      if (findNodeTarget(edge, "source", nodes).isEmpty()) {
+        nodes.add(newEdgeNodeTarget(edge, "source", matchMode));
+      }
+      if (findNodeTarget(edge, "target", nodes).isEmpty()) {
+        nodes.add(newEdgeNodeTarget(edge, "target", matchMode));
+      }
+    }
+
+    // third pass: go through edge & custom query targets
+    for (int i = 0; i < json.length(); i++) {
+      var target = json.getJSONObject(i);
+      if (target.has("edge")) {
+        relationshipTargets.add(parseEdge(i, target.getJSONObject("edge"), nodes));
+        continue;
+      }
+      if (target.has("custom_query")) {
+        queryTargets.add(parseCustomQuery(i, target.getJSONObject("custom_query"), options));
+      }
     }
     return new Targets(nodes, relationshipTargets, queryTargets);
   }
 
-  private static NodeTarget parseNode(JSONObject node) {
+  private static NodeTarget parseNode(int index, JSONObject node) {
     JSONObject mappings = node.getJSONObject("mappings");
     List<String> labels = parseLabels(mappings);
-    String targetName = node.getString("name");
+    String targetName = normalizeName(index, node.getString("name"), ArtifactType.node);
     return new NodeTarget(
         getBooleanOrDefault(node, "active", true),
         targetName,
         getStringOrDefault(node, "source", DEFAULT_SOURCE_NAME),
         null, // TODO: process dependencies
-        asWriteMode(node.getString("mode")),
+        parseWriteMode(node.getString("mode")),
         parseSourceTransformations(node),
         labels,
         parseMappings(mappings),
         parseNodeSchema(targetName, labels, mappings));
   }
 
-  private static RelationshipTarget parseEdge(JSONObject edge, List<NodeTarget> nodes) {
-    WriteMode writeMode = asWriteMode(edge.getString("mode"));
-    NodeMatchMode nodeMatchMode = asNodeMatchMode(edge, writeMode);
-    String startNodeReference =
-        findNodeTargetOrCreate(edge, "source", nodeMatchMode, nodes).getName();
-    String endNodeReference =
-        findNodeTargetOrCreate(edge, "target", nodeMatchMode, nodes).getName();
+  private static RelationshipTarget parseEdge(int index, JSONObject edge, List<NodeTarget> nodes) {
+    WriteMode writeMode = parseWriteMode(edge.getString("mode"));
+    NodeMatchMode nodeMatchMode = parseNodeMatchMode(edge, writeMode);
     JSONObject mappings = edge.getJSONObject("mappings");
-    String targetName = edge.getString("name");
+    String targetName = normalizeName(index, edge.getString("name"), ArtifactType.edge);
     String relationshipType = parseType(mappings);
     return new RelationshipTarget(
         getBooleanOrDefault(edge, "active", true),
@@ -119,21 +160,31 @@ public class TargetMapper {
         writeMode,
         nodeMatchMode,
         parseSourceTransformations(edge),
-        startNodeReference,
-        endNodeReference,
+        findNodeTarget(edge, "source", nodes).get(),
+        findNodeTarget(edge, "target", nodes).get(),
         parseMappings(mappings),
         parseEdgeSchema(targetName, relationshipType, mappings));
   }
 
-  private static CustomQueryTarget parseCustomQuery(JSONObject query, OptionsParams options) {
+  private static CustomQueryTarget parseCustomQuery(
+      int index, JSONObject query, OptionsParams options) {
     String cypher =
         ModelUtils.replaceVariableTokens(query.getString("query"), options.getTokenMap());
+    String targetName = normalizeName(index, query.getString("name"), ArtifactType.custom_query);
     return new CustomQueryTarget(
         getBooleanOrDefault(query, "active", true),
-        query.getString("name"),
+        targetName,
         getStringOrDefault(query, "source", DEFAULT_SOURCE_NAME),
         null, // TODO: process dependencies
         cypher);
+  }
+
+  private static String normalizeName(int index, String name, ArtifactType artifactType) {
+    if (name.isEmpty()) {
+      return String.format("%s/%d", artifactType, index);
+    }
+    // make sure name is globally unique
+    return String.format("%s/%s", artifactType, name);
   }
 
   private static SourceTransformations parseSourceTransformations(JSONObject json) {
@@ -195,19 +246,12 @@ public class TargetMapper {
     return new IllegalArgumentException(error);
   }
 
-  private static NodeTarget findNodeTargetOrCreate(
-      JSONObject edge, String key, NodeMatchMode matchMode, List<NodeTarget> nodes) {
-    return findNodeTarget(edge, key, nodes)
-        .orElseGet(
-            () -> {
-              WriteMode nodeWriteMode = asNodeWriteMode(matchMode);
-              NodeTarget sourceNode = parseEdgeNode(edge, key, nodeWriteMode);
-              nodes.add(sourceNode);
-              return sourceNode;
-            });
+  private static NodeTarget newEdgeNodeTarget(
+      JSONObject edge, String key, NodeMatchMode matchMode) {
+    return parseEdgeNode(edge, key, asNodeWriteMode(matchMode));
   }
 
-  private static WriteMode asWriteMode(String mode) {
+  private static WriteMode parseWriteMode(String mode) {
     switch (mode) {
       case "append":
         return WriteMode.CREATE;
@@ -231,7 +275,7 @@ public class TargetMapper {
             "expected node match mode to be either match or merge, but got: %s", matchMode));
   }
 
-  private static NodeMatchMode asNodeMatchMode(JSONObject edge, WriteMode writeMode) {
+  private static NodeMatchMode parseNodeMatchMode(JSONObject edge, WriteMode writeMode) {
     if (!edge.has("edge_nodes_match_mode")) {
       return defaultNodeMatchModeFor(writeMode);
     }

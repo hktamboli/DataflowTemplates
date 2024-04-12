@@ -47,6 +47,7 @@ import org.neo4j.importer.v1.targets.RelationshipKeyConstraint;
 import org.neo4j.importer.v1.targets.RelationshipRangeIndex;
 import org.neo4j.importer.v1.targets.RelationshipSchema;
 import org.neo4j.importer.v1.targets.RelationshipUniqueConstraint;
+import org.neo4j.importer.v1.targets.Target;
 import org.neo4j.importer.v1.targets.WriteMode;
 
 /**
@@ -55,13 +56,13 @@ import org.neo4j.importer.v1.targets.WriteMode;
  * @deprecated use the current JSON format instead
  */
 @Deprecated
-public class MappingMapper {
+class MappingMapper {
 
   public static String parseType(JSONObject mappings) {
     return unquote(getStringOrNull(mappings, "type"));
   }
 
-  public static Optional<NodeTarget> findNodeTarget(
+  public static Optional<String> findNodeTarget(
       JSONObject edge, String key, List<NodeTarget> nodes) {
     JSONObject node = getEdgeNode(edge.getJSONObject("mappings"), key);
     Collection<PropertyMapping> mappings = parseKeyMappings(node);
@@ -69,6 +70,7 @@ public class MappingMapper {
         .filter(
             target ->
                 new HashSet<>(target.getProperties()).containsAll(mappings)) // TODO: schema keys?
+        .map(Target::getName)
         .findFirst();
   }
 

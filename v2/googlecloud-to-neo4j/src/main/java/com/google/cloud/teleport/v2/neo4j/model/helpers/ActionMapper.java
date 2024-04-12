@@ -38,17 +38,24 @@ import org.neo4j.importer.v1.actions.HttpMethod;
  * @deprecated use the current JSON format instead
  */
 @Deprecated
-public class ActionMapper {
+class ActionMapper {
 
-  public static List<Action> fromJson(JSONArray json, OptionsParams options) {
+  public static void index(JSONArray json, JobSpecNameIndex index) {
+    for (int i = 0; i < json.length(); i++) {
+      JSONObject action = json.getJSONObject(i);
+      index.trackAction(action.getString("name"));
+    }
+  }
+
+  public static List<Action> parse(JSONArray json, OptionsParams options) {
     List<Action> actions = new ArrayList<>(json.length());
     for (int i = 0; i < json.length(); i++) {
-      actions.add(fromJson(json.getJSONObject(i), options));
+      actions.add(parse(json.getJSONObject(i), options));
     }
     return actions;
   }
 
-  private static Action fromJson(JSONObject json, OptionsParams options) {
+  private static Action parse(JSONObject json, OptionsParams options) {
     String type = json.getString("type").toLowerCase(Locale.ROOT);
     boolean active = JsonObjects.getBooleanOrDefault(json, "active", true);
     String name = json.getString("name");

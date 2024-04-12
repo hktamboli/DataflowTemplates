@@ -47,15 +47,15 @@ public class SourceMapper {
   static final String DEFAULT_SOURCE_NAME = "";
   static final Pattern NEWLINE_PATTERN = Pattern.compile("\\R");
 
-  public static List<Source> fromJson(JSONArray rawSources, OptionsParams options) {
+  public static List<Source> parse(JSONArray rawSources, OptionsParams options) {
     List<Source> sources = new ArrayList<>(rawSources.length());
     for (int i = 0; i < rawSources.length(); i++) {
-      sources.add(fromJson(rawSources.getJSONObject(i), options));
+      sources.add(parse(rawSources.getJSONObject(i), options));
     }
     return sources;
   }
 
-  public static Source fromJson(JSONObject rawSource, OptionsParams options) {
+  public static Source parse(JSONObject rawSource, OptionsParams options) {
     var sourceType = getStringOrDefault(rawSource, "type", "text");
     switch (sourceType) {
       case "text":

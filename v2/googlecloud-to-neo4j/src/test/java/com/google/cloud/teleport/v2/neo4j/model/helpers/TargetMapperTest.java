@@ -44,7 +44,7 @@ public class TargetMapperTest {
     transform.put("group", true);
     customObject.put("transform", transform); // ignored
 
-    Targets targets = TargetMapper.fromJson(arrayOf(jsonTarget), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(jsonTarget), new OptionsParams());
 
     assertThat(targets.getNodes()).isEmpty();
     assertThat(targets.getRelationships()).isEmpty();
@@ -66,7 +66,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -85,7 +85,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -103,7 +103,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MATCH);
@@ -121,24 +121,10 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.fromJson(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
-  }
-
-  @Test
-  public void rejects_invalid_target() {
-    JSONObject invalidObject = jsonTargetOfType("invalid");
-
-    Exception exception =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> TargetMapper.fromJson(arrayOf(invalidObject), new OptionsParams()));
-    assertThat(exception)
-        .hasMessageThat()
-        .isEqualTo(
-            "Expected target JSON to have one of: \"node\", \"edge\", \"custom_query\" as top-level field, but only found fields: \"invalid\"");
   }
 
   @Test
