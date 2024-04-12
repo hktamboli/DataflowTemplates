@@ -25,6 +25,7 @@ import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.neo4j.importer.v1.actions.Action;
+import org.neo4j.importer.v1.actions.ActionStage;
 import org.neo4j.importer.v1.actions.BigQueryAction;
 import org.neo4j.importer.v1.actions.CypherAction;
 import org.neo4j.importer.v1.actions.CypherExecutionMode;
@@ -63,20 +64,20 @@ public class ActionMapper {
         return new CypherAction(
             active,
             name,
-            null, // TODO: stage
+            mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
             ModelUtils.replaceVariableTokens(option.getString("cypher"), options.getTokenMap()),
             CypherExecutionMode.AUTOCOMMIT);
       case "bigquery":
         return new BigQueryAction(
             active,
             name,
-            null, // TODO: stage
+            mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
             ModelUtils.replaceVariableTokens(option.getString("sql"), options.getTokenMap()));
       case "http_get":
         return new HttpAction(
             active,
             name,
-            null, // TODO: stage
+            mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
             ModelUtils.replaceVariableTokens(option.getString("url"), options.getTokenMap()),
             HttpMethod.GET,
             processValues(json.getJSONObject("headers").toMap(), options));
@@ -84,7 +85,7 @@ public class ActionMapper {
         return new HttpAction(
             active,
             name,
-            null, // TODO: stage
+            mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
             ModelUtils.replaceVariableTokens(option.getString("url"), options.getTokenMap()),
             HttpMethod.POST,
             processValues(json.getJSONObject("headers").toMap(), options));
@@ -94,6 +95,13 @@ public class ActionMapper {
                 "Unsupported action type %s, expected one of: cypher, bigquery, http_get, http_post",
                 type));
     }
+  }
+
+  private static ActionStage mapStage(Object executeAfter, Object executeAfterName) {
+    if (executeAfter == null) {
+      return ActionStage.END;
+    }
+    return ActionStage.START;
   }
 
   private static Map<String, String> processValues(Map<String, Object> map, OptionsParams options) {

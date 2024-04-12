@@ -26,6 +26,7 @@ import com.google.cloud.teleport.v2.neo4j.model.InputValidator;
 import com.google.cloud.teleport.v2.neo4j.model.Json;
 import com.google.cloud.teleport.v2.neo4j.model.Json.ParsingResult;
 import com.google.cloud.teleport.v2.neo4j.model.connection.ConnectionParams;
+import com.google.cloud.teleport.v2.neo4j.model.enums.ArtifactType;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.JobSpecMapper;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.OptionsParamsMapper;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetQuerySpec;
@@ -37,6 +38,7 @@ import com.google.cloud.teleport.v2.neo4j.options.Neo4jFlexTemplateOptions;
 import com.google.cloud.teleport.v2.neo4j.providers.Provider;
 import com.google.cloud.teleport.v2.neo4j.providers.ProviderFactory;
 import com.google.cloud.teleport.v2.neo4j.transforms.Neo4jRowWriterTransform;
+import com.google.cloud.teleport.v2.neo4j.utils.BeamBlock;
 import com.google.cloud.teleport.v2.neo4j.utils.FileSystemUtils;
 import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import com.google.cloud.teleport.v2.neo4j.utils.ProcessingCoder;
@@ -52,6 +54,7 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.Wait;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -60,6 +63,7 @@ import org.neo4j.importer.v1.Configuration;
 import org.neo4j.importer.v1.ImportSpecification;
 import org.neo4j.importer.v1.actions.Action;
 import org.neo4j.importer.v1.actions.ActionStage;
+import org.neo4j.importer.v1.sources.Source;
 import org.neo4j.importer.v1.targets.CustomQueryTarget;
 import org.neo4j.importer.v1.targets.NodeTarget;
 import org.neo4j.importer.v1.targets.RelationshipTarget;
@@ -103,7 +107,7 @@ import org.slf4j.LoggerFactory;
             "The job specification file consists of a JSON object with the following sections:\n"
                 + "- `config` - global flags affecting how the import is performed.\n"
                 + "- `sources` - data source definitions (relational).\n"
-                + "- `targets` - data target definitions (graph: nodes/relationships).\n"
+                + "- `targets` - data target definitions (graph: nodes/relationships/custom queries).\n"
                 + "- `actions` - pre/post-load actions.\n"
                 + "For more information, see <a href=\"https://neo4j.com/docs/dataflow-google-cloud/job-specification/\" class=\"external\">Create a job specification file</a> in the Neo4j documentation."
           })
@@ -161,7 +165,7 @@ public class GoogleCloudToNeo4j {
     ///////////////////////////////////
 
     // Source specific validations
-    for (org.neo4j.importer.v1.sources.Source source : importSpecification.getSources()) {
+    for (Source source : importSpecification.getSources()) {
       // get provider implementation for source
       Provider providerImpl = ProviderFactory.of(source, targetSequence);
       providerImpl.configure(optionsParams);
@@ -249,6 +253,8 @@ public class GoogleCloudToNeo4j {
             "Default Context",
             Create.empty(TypeDescriptor.of(Row.class)).withCoder(ProcessingCoder.of()));
 
+    BeamBlock processingQueue = new BeamBlock(defaultActionContext);
+
     ////////////////////////////
     // Process sources
     for (var source : importSpecification.getSources()) {
@@ -260,6 +266,8 @@ public class GoogleCloudToNeo4j {
           pipeline.apply(
               String.format("Metadata for source %s", source.getName()), provider.queryMetadata());
       Schema sourceBeamSchema = sourceMetadata.getSchema();
+      processingQueue.addToQueue(
+              ArtifactType.source, false, source.getName(), defaultActionContext, sourceMetadata);
       PCollection<Row> nullableSourceBeamRows = null;
 
       ////////////////////////////
@@ -301,20 +309,26 @@ public class GoogleCloudToNeo4j {
             pipeline.apply(
                 "Query " + nodeStepDescription, provider.queryTargetBeamRows(targetQuerySpec));
 
-        preInsertBeamRows
-            //            .apply(
-            //                "** Unblocking "
-            //                    + nodeStepDescription
-            //                    + "(after "
-            //                    + String.join(", ", target.getDependencies())
-            //                    + ")",
-            //                Wait.on(dependencies(target, coder)))
-            //            .setCoder(preInsertBeamRows.getCoder())
-            .apply(
-                "Writing " + nodeStepDescription,
-                new Neo4jRowWriterTransform(
-                    importSpecification, neo4jConnection, templateVersion, targetSequence, target))
-            .setCoder(preInsertBeamRows.getCoder());
+        PCollection<Row> blockingReturn = preInsertBeamRows
+                .apply(
+                        "** Unblocking "
+                        + nodeStepDescription
+                        + "(after "
+                        + String.join(", ", target.getDependencies())
+                        + ")",
+                        Wait.on(
+                                processingQueue.waitOnCollections(
+                                        target.getDependencies(),
+                                        nodeStepDescription)))
+                .setCoder(preInsertBeamRows.getCoder())
+                .apply(
+                        "Writing " + nodeStepDescription,
+                        new Neo4jRowWriterTransform(
+                                importSpecification, neo4jConnection, templateVersion, targetSequence, target))
+                .setCoder(preInsertBeamRows.getCoder());
+
+        processingQueue.addToQueue(
+                ArtifactType.node, false, target.getName(), blockingReturn, preInsertBeamRows);
       }
 
       ////////////////////////////
@@ -347,20 +361,31 @@ public class GoogleCloudToNeo4j {
         } else {
           preInsertBeamRows = nullableSourceBeamRows;
         }
-        preInsertBeamRows
-            // TODO            .apply(
-            //                "** Unblocking "
-            //                    + relationshipStepDescription
-            //                    + "(after "
-            //                    + String.join(", ", target.getDependencies())
-            //                    + ")",
-            //                Wait.on(dependencies(target, coder)))
-            //            .setCoder(coder)
-            .apply(
-                "Writing " + relationshipStepDescription,
-                new Neo4jRowWriterTransform(
-                    importSpecification, neo4jConnection, templateVersion, targetSequence, target))
-            .setCoder(preInsertBeamRows.getCoder());
+        PCollection<Row> blockingReturn = preInsertBeamRows
+                .apply(
+                        "** Unblocking "
+                        + relationshipStepDescription
+                        + "(after "
+                        + String.join(", ", target.getDependencies())
+                        + ")",
+                        Wait.on(
+                                processingQueue.waitOnCollections(
+                                        target.getDependencies(),
+                                        relationshipStepDescription)))
+                .setCoder(preInsertBeamRows.getCoder())
+                .apply(
+                        "Writing " + relationshipStepDescription,
+                        new Neo4jRowWriterTransform(
+                                importSpecification, neo4jConnection, templateVersion, targetSequence, target))
+                .setCoder(preInsertBeamRows.getCoder());
+
+        // serialize relationships
+        processingQueue.addToQueue(
+                ArtifactType.edge,
+                false,
+                target.getName(),
+                blockingReturn,
+                preInsertBeamRows);
       }
       ////////////////////////////
       // Custom query targets
@@ -377,14 +402,17 @@ public class GoogleCloudToNeo4j {
 
         PCollection<Row> blockingReturn =
             nullableSourceBeamRows
-                // TODO                .apply(
-                //                    "** Unblocking "
-                //                        + customQueryStepDescription
-                //                        + "(after "
-                //                        + String.join(", ", target.getDependencies())
-                //                        + ")",
-                //                    Wait.on(dependencies(target)))
-                //                .setCoder(coder)
+                    .apply(
+                            "** Unblocking "
+                            + customQueryStepDescription
+                            + "(after "
+                            + String.join(", ", target.getDependencies())
+                            + ")",
+                            Wait.on(
+                                    processingQueue.waitOnCollections(
+                                            target.getDependencies(),
+                                            customQueryStepDescription)))
+                    .setCoder(nullableSourceBeamRows.getCoder())
                 .apply(
                     "Writing " + customQueryStepDescription,
                     new Neo4jRowWriterTransform(
@@ -394,6 +422,13 @@ public class GoogleCloudToNeo4j {
                         targetSequence,
                         target))
                 .setCoder(nullableSourceBeamRows.getCoder());
+
+        processingQueue.addToQueue(
+                ArtifactType.custom_query,
+                false,
+                target.getName(),
+                blockingReturn,
+                nullableSourceBeamRows);
       }
     }
 
@@ -403,7 +438,6 @@ public class GoogleCloudToNeo4j {
         importSpecification.getActions().stream()
             .filter(action -> action.getStage() != ActionStage.START)
             .collect(Collectors.toList());
-    // TODO: get coder for row
     runBeamActions(postLoadActions, defaultActionContext.getCoder());
 
     // For a Dataflow Flex Template, do NOT waitUntilFinish().
