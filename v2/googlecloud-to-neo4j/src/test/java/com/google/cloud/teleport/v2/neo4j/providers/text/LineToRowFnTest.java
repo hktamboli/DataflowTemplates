@@ -15,7 +15,6 @@
  */
 package com.google.cloud.teleport.v2.neo4j.providers.text;
 
-import com.google.cloud.teleport.v2.neo4j.model.job.Source;
 import org.apache.beam.sdk.coders.RowCoder;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.Field;
@@ -38,7 +37,6 @@ public class LineToRowFnTest {
   @Test
   public void testTransform() {
     // Arrange
-    Source source = new Source();
     Schema sourceSchema =
         Schema.of(Field.of("id", FieldType.STRING), Field.of("name", FieldType.STRING));
     CSVFormat csvFormat = CSVFormat.DEFAULT;
@@ -69,7 +67,6 @@ public class LineToRowFnTest {
   @Test
   public void testNumberOfFieldsTruncated() {
     // Arrange
-    Source source = new Source();
     Schema sourceSchema = Schema.of(Field.of("id", FieldType.STRING));
     CSVFormat csvFormat = CSVFormat.DEFAULT;
 

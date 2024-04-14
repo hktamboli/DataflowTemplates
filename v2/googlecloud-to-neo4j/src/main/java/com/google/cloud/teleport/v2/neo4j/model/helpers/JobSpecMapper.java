@@ -36,31 +36,18 @@ import org.slf4j.LoggerFactory;
 public class JobSpecMapper {
   private static final Logger LOG = LoggerFactory.getLogger(JobSpecMapper.class);
 
-  public static ImportSpecification fromUri(String jobSpecUri, OptionsParams options) {
+  public static ImportSpecification parse(String jobSpecUri, OptionsParams options) {
     var json = fetchContent(jobSpecUri);
     var spec = new JSONObject(json);
-    if (spec.has("version")) {
-      try {
-        // TODO: read query + input file pattern + runtime tokens for new spec
-        return ImportSpecificationDeserializer.deserialize(new StringReader(json));
-      } catch (SpecificationException e) {
-        throw new RuntimeException("Unable to parse Neo4j job specification", e);
-      }
+    if (!spec.has("version")) {
+      return parseLegacyJobSpec(options, spec);
     }
-
-    LOG.info("Converting legacy JSON job spec to new import specification format");
-    var index = new JobSpecNameIndex();
-    var targets = extractTargets(spec);
-    TargetMapper.index(targets, index);
-    var actions = extractActions(spec);
-    ActionMapper.index(actions, index);
-    // TODO: validate
-    return new ImportSpecification(
-        "0.legacy",
-        parseConfig(spec),
-        parseSources(spec, options),
-        TargetMapper.parse(targets, options),
-        ActionMapper.parse(actions, options));
+    try {
+      // TODO: read query + input file pattern + runtime tokens for new spec
+      return ImportSpecificationDeserializer.deserialize(new StringReader(json));
+    } catch (SpecificationException e) {
+      throw validationFailure(e);
+    }
   }
 
   private static String fetchContent(String jobSpecUri) {
@@ -70,6 +57,32 @@ public class JobSpecMapper {
       LOG.error("Unable to fetch Neo4j job specification from URI {}: ", jobSpecUri, e);
       throw new RuntimeException(e);
     }
+  }
+
+  private static ImportSpecification parseLegacyJobSpec(OptionsParams options, JSONObject spec) {
+    LOG.info("Converting legacy JSON job spec to new import specification format");
+    var index = new JobSpecNameIndex();
+    var targets = extractTargets(spec);
+    TargetMapper.index(targets, index);
+    var actions = extractActions(spec);
+    ActionMapper.index(actions, index);
+    var specification =
+        new ImportSpecification(
+            "0.legacy",
+            parseConfig(spec),
+            parseSources(spec, options),
+            TargetMapper.parse(targets, options),
+            ActionMapper.parse(actions, options));
+    try {
+      ImportSpecificationDeserializer.validate(specification);
+    } catch (SpecificationException e) {
+      throw validationFailure(e);
+    }
+    return specification;
+  }
+
+  private static RuntimeException validationFailure(SpecificationException e) {
+    return new RuntimeException("Unable to process Neo4j job specification", e);
   }
 
   private static Map<String, Object> parseConfig(JSONObject json) {

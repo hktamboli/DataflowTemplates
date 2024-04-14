@@ -15,28 +15,9 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getBooleanOrDefault;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getIntegerOrNull;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getStringOrDefault;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.findNodeTarget;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseEdgeNode;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseEdgeSchema;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseLabels;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseMappings;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseNodeSchema;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseType;
-import static com.google.cloud.teleport.v2.neo4j.model.helpers.SourceMapper.DEFAULT_SOURCE_NAME;
-
 import com.google.cloud.teleport.v2.neo4j.model.enums.ArtifactType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.TargetType;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -50,6 +31,25 @@ import org.neo4j.importer.v1.targets.RelationshipTarget;
 import org.neo4j.importer.v1.targets.SourceTransformations;
 import org.neo4j.importer.v1.targets.Targets;
 import org.neo4j.importer.v1.targets.WriteMode;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getBooleanOrDefault;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getIntegerOrNull;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getStringOrDefault;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.findNodeTarget;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseEdgeNode;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseEdgeSchema;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseLabels;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseMappings;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseNodeSchema;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseType;
+import static com.google.cloud.teleport.v2.neo4j.model.helpers.SourceMapper.DEFAULT_SOURCE_NAME;
 
 /**
  * Helper class for parsing legacy json into an {@link org.neo4j.importer.v1.ImportSpecification}'s
@@ -233,17 +233,6 @@ class TargetMapper {
               return new OrderBy(expression, order);
             })
         .collect(Collectors.toList());
-  }
-
-  private static IllegalArgumentException invalidTargetException(JSONObject target) {
-    String error =
-        String.format(
-            "Expected target JSON to have one of: \"%s\" as top-level field, but only found fields: \"%s\"",
-            Arrays.stream(TargetType.values())
-                .map(TargetType::name)
-                .collect(Collectors.joining("\", \"")),
-            String.join("\", \"", target.keySet()));
-    return new IllegalArgumentException(error);
   }
 
   private static NodeTarget newEdgeNodeTarget(

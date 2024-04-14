@@ -16,7 +16,6 @@
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import java.util.List;

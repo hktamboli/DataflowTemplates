@@ -15,22 +15,18 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.google.cloud.teleport.v2.neo4j.model.Json.ParsingResult;
+import com.google.cloud.teleport.v2.neo4j.options.Neo4jFlexTemplateOptions;
+import com.networknt.schema.ValidationMessage;
+import org.junit.Test;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.google.cloud.teleport.v2.neo4j.model.Json.ParsingResult;
-import com.google.cloud.teleport.v2.neo4j.model.enums.FragmentType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.RoleType;
-import com.google.cloud.teleport.v2.neo4j.model.job.Mapping;
-import com.google.cloud.teleport.v2.neo4j.model.job.Source;
-import com.google.cloud.teleport.v2.neo4j.options.Neo4jFlexTemplateOptions;
-import com.networknt.schema.ValidationMessage;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-import org.junit.Test;
 
 public class InputValidatorTest {
 
@@ -432,40 +428,4 @@ public class InputValidatorTest {
                 "Neo4j connection secret must be in the form projects/{project}/secrets/{secret}/versions/{secret_version}"));
   }
 
-  private static List<Mapping> nodeMappings() {
-    Mapping key = new Mapping();
-    key.setFragmentType(FragmentType.node);
-    key.setRole(RoleType.key);
-    key.setField("source_column");
-    key.setName("targetProperty");
-    Mapping label = new Mapping();
-    label.setFragmentType(FragmentType.node);
-    label.setRole(RoleType.label);
-    label.setConstant("\"PlaceholderLabel\"");
-    return new ArrayList<>(List.of(key, label));
-  }
-
-  private static List<Mapping> edgeMappings() {
-    Mapping type = new Mapping();
-    type.setFragmentType(FragmentType.rel);
-    type.setRole(RoleType.type);
-    type.setConstant("\"PLACEHOLDER_TYPE\"");
-    Mapping source = new Mapping();
-    source.setName("sourcePlaceholderProperty");
-    source.setFragmentType(FragmentType.source);
-    source.setRole(RoleType.key);
-    source.setField("placeholder_source_field");
-    Mapping target = new Mapping();
-    source.setName("targetPlaceholderProperty");
-    target.setFragmentType(FragmentType.target);
-    target.setRole(RoleType.key);
-    target.setField("placeholder_target_field");
-    return new ArrayList<>(List.of(type, source, target));
-  }
-
-  private static Source source(String name) {
-    Source source = new Source();
-    source.setName(name);
-    return source;
-  }
 }

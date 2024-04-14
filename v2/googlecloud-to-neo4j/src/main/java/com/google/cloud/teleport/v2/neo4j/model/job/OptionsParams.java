@@ -34,7 +34,7 @@ public class OptionsParams implements Serializable {
 
   private String readQuery = "";
   private String inputFilePattern = "";
-  private HashMap<String, String> tokenMap = new HashMap<>();
+  private final Map<String, String> tokenMap = new HashMap<>();
 
   public OptionsParams() {}
 

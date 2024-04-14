@@ -158,8 +158,7 @@ public class GoogleCloudToNeo4j {
     }
     this.neo4jConnection = Json.map(parsingResult, ConnectionParams.class);
 
-    this.importSpecification =
-        JobSpecMapper.fromUri(pipelineOptions.getJobSpecUri(), optionsParams);
+    this.importSpecification = JobSpecMapper.parse(pipelineOptions.getJobSpecUri(), optionsParams);
     globalSettings = importSpecification.getConfiguration();
 
     ///////////////////////////////////

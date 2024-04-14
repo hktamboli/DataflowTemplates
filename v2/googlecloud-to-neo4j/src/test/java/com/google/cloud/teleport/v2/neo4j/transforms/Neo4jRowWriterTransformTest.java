@@ -15,11 +15,6 @@
  */
 package com.google.cloud.teleport.v2.neo4j.transforms;
 
-import com.google.cloud.teleport.v2.neo4j.model.enums.FragmentType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.RoleType;
-import com.google.cloud.teleport.v2.neo4j.model.job.FieldNameTuple;
-import com.google.cloud.teleport.v2.neo4j.model.job.Mapping;
-
 public class Neo4jRowWriterTransformTest {
 
   //  @Test
@@ -57,16 +52,4 @@ public class Neo4jRowWriterTransformTest {
   //    verify(connection).executeCypher(any(), eq(expectedTransactionConfig));
   //  }
 
-  private static Mapping aLabelMapping() {
-    FieldNameTuple tuple = new FieldNameTuple();
-    tuple.setConstant("PlaceholderLabel");
-    return new Mapping(FragmentType.node, RoleType.label, tuple);
-  }
-
-  private static Mapping aKeyMapping() {
-    FieldNameTuple tuple = new FieldNameTuple();
-    tuple.setField("field");
-    tuple.setName("name");
-    return new Mapping(FragmentType.node, RoleType.key, tuple);
-  }
 }

@@ -41,7 +41,7 @@ public class CypherGeneratorTest {
   @Test
   public void specifies_keys_in_relationship_merge_pattern() {
     var importSpecification =
-        JobSpecMapper.fromUri(
+        JobSpecMapper.parse(
             SPEC_PATH + "/single-target-relation-import-with-keys-spec.json", new OptionsParams());
     RelationshipTarget relationshipTarget =
         importSpecification.getTargets().getRelationships().iterator().next();
@@ -59,7 +59,7 @@ public class CypherGeneratorTest {
   @Test
   public void specifies_only_type_in_keyless_relationship_merge_pattern() {
     var importSpecification =
-        JobSpecMapper.fromUri(
+        JobSpecMapper.parse(
             SPEC_PATH + "/single-target-relation-import-without-keys-spec.json",
             new OptionsParams());
     RelationshipTarget relationshipTarget =
@@ -78,7 +78,7 @@ public class CypherGeneratorTest {
   @Test
   public void merges_edges_as_well_as_their_start_and_end_nodes() {
     var importSpecification =
-        JobSpecMapper.fromUri(
+        JobSpecMapper.parse(
             SPEC_PATH + "/single-target-relation-import-merge-all.json", new OptionsParams());
     RelationshipTarget relationshipTarget =
         importSpecification.getTargets().getRelationships().iterator().next();
@@ -96,7 +96,7 @@ public class CypherGeneratorTest {
   @Test
   public void creates_edges_and_merges_their_start_and_end_nodes() {
     var importSpecification =
-        JobSpecMapper.fromUri(
+        JobSpecMapper.parse(
             SPEC_PATH + "/single-target-relation-import-create-rels-merge-nodes.json",
             new OptionsParams());
     RelationshipTarget relationshipTarget =
@@ -115,7 +115,7 @@ public class CypherGeneratorTest {
   @Test
   public void does_not_generate_constraints_for_edge_without_schema() {
     var importSpecification =
-        JobSpecMapper.fromUri(
+        JobSpecMapper.parse(
             SPEC_PATH + "/single-target-relation-import-merge-all.json", new OptionsParams());
     RelationshipTarget relationshipTarget =
         importSpecification.getTargets().getRelationships().iterator().next();
