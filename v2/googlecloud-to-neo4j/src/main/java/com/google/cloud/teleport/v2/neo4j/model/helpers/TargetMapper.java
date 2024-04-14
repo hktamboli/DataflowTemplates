@@ -70,13 +70,11 @@ class TargetMapper {
         var node = target.getJSONObject("node");
         index.trackNode(normalizeName(i, node.getString("name"), ArtifactType.node));
         continue;
-      }
-      else if (target.has("edge")) {
+      } else if (target.has("edge")) {
         var edge = target.getJSONObject("edge");
         index.trackEdge(normalizeName(i, edge.getString("name"), ArtifactType.edge));
         continue;
-      }
-      else if (target.has("custom_query")) {
+      } else if (target.has("custom_query")) {
         var query = target.getJSONObject("custom_query");
         index.trackCustomQuery(
             normalizeName(i, query.getString("name"), ArtifactType.custom_query));
@@ -128,8 +126,7 @@ class TargetMapper {
         relationshipTargets.add(
             parseEdge(i, target.getJSONObject("edge"), nodes, indexAllProperties));
         continue;
-      }
-      else if (target.has("custom_query")) {
+      } else if (target.has("custom_query")) {
         queryTargets.add(parseCustomQuery(i, target.getJSONObject("custom_query"), options));
       }
     }

@@ -211,7 +211,7 @@ public class ModelUtils {
     StringBuilder builder = new StringBuilder();
     int i = 0;
     while (matcher.find()) {
-      LOG.info("Matcher group: " + matcher.group(1));
+      LOG.debug("Matcher group: " + matcher.group(1));
       String replacement = replacements.get(matcher.group(2));
       builder.append(text, i, matcher.start());
       if (replacement == null) {
@@ -223,7 +223,7 @@ public class ModelUtils {
     }
     builder.append(text.substring(i));
     String replacedText = builder.toString();
-    LOG.info("Before: " + text + ", after: " + replacedText);
+    LOG.debug("Before: " + text + ", after: " + replacedText);
     return replacedText;
   }
 

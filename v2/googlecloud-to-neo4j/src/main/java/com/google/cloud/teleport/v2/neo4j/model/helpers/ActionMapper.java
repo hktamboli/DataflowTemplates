@@ -55,47 +55,45 @@ class ActionMapper {
     return actions;
   }
 
-  private static Action parse(JSONObject json, OptionsParams options) {
-    String type = json.getString("type").toLowerCase(Locale.ROOT);
-    boolean active = JsonObjects.getBooleanOrDefault(json, "active", true);
-    String name = json.getString("name");
-    var actionOptions = json.getJSONArray("options");
-    if (actionOptions.length() != 1) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Expected a single option for Cypher query, got %d", actionOptions.length()));
-    }
-    var option = actionOptions.getJSONObject(0);
+  private static Action parse(JSONObject json, OptionsParams templateOptions) {
+    var type = json.getString("type").toLowerCase(Locale.ROOT);
+    var active = JsonObjects.getBooleanOrDefault(json, "active", true);
+    var name = json.getString("name");
+    var options = flattenObjectList(json, "options");
     switch (type) {
-      case "cypher":
-        return new CypherAction(
-            active,
-            name,
-            mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
-            ModelUtils.replaceVariableTokens(option.getString("cypher"), options.getTokenMap()),
-            CypherExecutionMode.AUTOCOMMIT);
       case "bigquery":
         return new BigQueryAction(
             active,
             name,
             mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
-            ModelUtils.replaceVariableTokens(option.getString("sql"), options.getTokenMap()));
+            ModelUtils.replaceVariableTokens(
+                (String) options.get("sql"), templateOptions.getTokenMap()));
+      case "cypher":
+        return new CypherAction(
+            active,
+            name,
+            mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
+            ModelUtils.replaceVariableTokens(
+                (String) options.get("cypher"), templateOptions.getTokenMap()),
+            CypherExecutionMode.AUTOCOMMIT);
       case "http_get":
         return new HttpAction(
             active,
             name,
             mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
-            ModelUtils.replaceVariableTokens(option.getString("url"), options.getTokenMap()),
+            ModelUtils.replaceVariableTokens(
+                (String) options.get("url"), templateOptions.getTokenMap()),
             HttpMethod.GET,
-            processValues(json.getJSONObject("headers").toMap(), options));
+            processValues(flattenObjectList(json, "headers"), templateOptions));
       case "http_post":
         return new HttpAction(
             active,
             name,
             mapStage(json.opt("execute_after"), json.opt("execute_after_name")),
-            ModelUtils.replaceVariableTokens(option.getString("url"), options.getTokenMap()),
+            ModelUtils.replaceVariableTokens(
+                (String) options.get("url"), templateOptions.getTokenMap()),
             HttpMethod.POST,
-            processValues(json.getJSONObject("headers").toMap(), options));
+            processValues(flattenObjectList(json, "headers"), templateOptions));
       default:
         throw new IllegalArgumentException(
             String.format(
@@ -112,10 +110,25 @@ class ActionMapper {
   }
 
   private static Map<String, String> processValues(Map<String, Object> map, OptionsParams options) {
+    if (map == null) {
+      return null;
+    }
     Map<String, String> result = new HashMap<>(map.size());
     for (String key : map.keySet()) {
-      String value = (String) map.get("key");
+      String value = (String) map.get(key);
       result.put(key, ModelUtils.replaceVariableTokens(value, options.getTokenMap()));
+    }
+    return result;
+  }
+
+  private static Map<String, Object> flattenObjectList(JSONObject json, String key) {
+    if (!json.has(key)) {
+      return Map.of();
+    }
+    JSONArray headers = json.getJSONArray(key);
+    Map<String, Object> result = new HashMap<>(2 * headers.length());
+    for (int i = 0; i < headers.length(); i++) {
+      result.putAll(headers.getJSONObject(i).toMap());
     }
     return result;
   }

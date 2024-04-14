@@ -40,7 +40,7 @@ public class OptionsParams implements Serializable {
 
   @JsonIgnore
   public void overlayTokens(String optionsJsonStr) {
-    LOG.info("Pipeline options: {}", optionsJsonStr);
+    LOG.debug("Parsing pipeline options: {}", optionsJsonStr);
     JSONObject optionsJson = new JSONObject(optionsJsonStr);
     Iterator<String> optionsKeys = optionsJson.keys();
     while (optionsKeys.hasNext()) {
@@ -51,7 +51,7 @@ public class OptionsParams implements Serializable {
       } else if ("inputFilePattern".equals(optionsKey)) {
         this.inputFilePattern = optionsJson.getString("inputFilePattern");
       }
-      LOG.info("{}: {}", optionsKey, optionsJson.opt(optionsKey));
+      LOG.debug("{}: {}", optionsKey, optionsJson.opt(optionsKey));
     }
   }
 
