@@ -295,7 +295,7 @@ abstract class CompoundNodeSchemaListener<T> implements MappingListener {
   protected abstract T newSchemaElement(String label, List<String> properties);
 
   public List<T> getSchema() {
-    return schema.isEmpty() ? null : schema;
+    return schema;
   }
 }
 
@@ -344,7 +344,7 @@ abstract class CompoundRelationshipSchemaListener<T> implements MappingListener 
   protected abstract T newSchemaElement(List<String> properties);
 
   public List<T> getSchema() {
-    return schema.isEmpty() ? null : schema;
+    return schema;
   }
 }
 

@@ -43,7 +43,7 @@ public class TargetMapperTest {
     transform.put("group", true);
     customObject.put("transform", transform); // ignored
 
-    Targets targets = TargetMapper.parse(arrayOf(jsonTarget), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(jsonTarget), new OptionsParams(), false);
 
     assertThat(targets.getNodes()).isEmpty();
     assertThat(targets.getRelationships()).isEmpty();
@@ -65,7 +65,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -84,7 +84,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -102,7 +102,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MATCH);
@@ -120,7 +120,7 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams());
+    Targets targets = TargetMapper.parse(arrayOf(target), new OptionsParams(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);

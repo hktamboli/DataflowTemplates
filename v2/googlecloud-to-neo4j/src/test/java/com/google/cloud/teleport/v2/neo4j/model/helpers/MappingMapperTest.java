@@ -225,7 +225,8 @@ public class MappingMapperTest {
                 Map.of("mandatory", List.of(Map.of("source_field", "targetProperty")))));
 
     var nodeSchema =
-        MappingMapper.parseNodeSchema("placeholder-target", List.of("Placeholder"), mappings);
+        MappingMapper.parseNodeSchema(
+            "placeholder-target", List.of("Placeholder"), mappings, List.of());
 
     assertThat(nodeSchema)
         .isEqualTo(
@@ -254,7 +255,8 @@ public class MappingMapperTest {
             "PLACEHOLDER",
             new JSONObject(
                 Map.of(
-                    "properties", Map.of("mandatory", Map.of("source_field", "targetProperty")))));
+                    "properties", Map.of("mandatory", Map.of("source_field", "targetProperty")))),
+            List.of());
 
     assertThat(schema)
         .isEqualTo(

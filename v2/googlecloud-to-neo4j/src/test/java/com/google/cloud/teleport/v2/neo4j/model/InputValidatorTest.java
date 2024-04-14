@@ -15,18 +15,17 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.cloud.teleport.v2.neo4j.model.Json.ParsingResult;
 import com.google.cloud.teleport.v2.neo4j.options.Neo4jFlexTemplateOptions;
 import com.networknt.schema.ValidationMessage;
-import org.junit.Test;
-
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.Test;
 
 public class InputValidatorTest {
 
@@ -427,5 +426,4 @@ public class InputValidatorTest {
             List.of(
                 "Neo4j connection secret must be in the form projects/{project}/secrets/{secret}/versions/{secret_version}"));
   }
-
 }

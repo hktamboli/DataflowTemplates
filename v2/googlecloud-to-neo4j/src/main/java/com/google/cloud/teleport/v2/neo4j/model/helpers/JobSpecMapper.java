@@ -59,19 +59,23 @@ public class JobSpecMapper {
     }
   }
 
+  @Deprecated
   private static ImportSpecification parseLegacyJobSpec(OptionsParams options, JSONObject spec) {
     LOG.info("Converting legacy JSON job spec to new import specification format");
-    var index = new JobSpecNameIndex();
+    var configuration = parseConfig(spec);
     var targets = extractTargets(spec);
-    TargetMapper.index(targets, index);
     var actions = extractActions(spec);
-    ActionMapper.index(actions, index);
+    var index =
+        indexLegacyJobSpec(targets, actions); // TODO: use for target/action dependency resolution
     var specification =
         new ImportSpecification(
             "0.legacy",
-            parseConfig(spec),
+            configuration,
             parseSources(spec, options),
-            TargetMapper.parse(targets, options),
+            TargetMapper.parse(
+                targets,
+                options,
+                (boolean) configuration.getOrDefault("index_all_properties", false)),
             ActionMapper.parse(actions, options));
     try {
       ImportSpecificationDeserializer.validate(specification);
@@ -79,6 +83,13 @@ public class JobSpecMapper {
       throw validationFailure(e);
     }
     return specification;
+  }
+
+  private static JobSpecNameIndex indexLegacyJobSpec(JSONArray targets, JSONArray actions) {
+    var index = new JobSpecNameIndex();
+    TargetMapper.index(targets, index);
+    ActionMapper.index(actions, index);
+    return index;
   }
 
   private static RuntimeException validationFailure(SpecificationException e) {

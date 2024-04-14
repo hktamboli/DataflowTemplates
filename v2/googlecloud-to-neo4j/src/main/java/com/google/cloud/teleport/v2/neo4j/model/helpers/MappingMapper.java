@@ -34,15 +34,20 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.neo4j.importer.v1.targets.NodeExistenceConstraint;
 import org.neo4j.importer.v1.targets.NodeKeyConstraint;
 import org.neo4j.importer.v1.targets.NodeRangeIndex;
 import org.neo4j.importer.v1.targets.NodeSchema;
 import org.neo4j.importer.v1.targets.NodeTarget;
 import org.neo4j.importer.v1.targets.NodeUniqueConstraint;
 import org.neo4j.importer.v1.targets.PropertyMapping;
+import org.neo4j.importer.v1.targets.RelationshipExistenceConstraint;
 import org.neo4j.importer.v1.targets.RelationshipKeyConstraint;
 import org.neo4j.importer.v1.targets.RelationshipRangeIndex;
 import org.neo4j.importer.v1.targets.RelationshipSchema;
@@ -62,23 +67,36 @@ class MappingMapper {
     return unquote(getStringOrNull(mappings, "type"));
   }
 
-  public static Optional<String> findNodeTarget(
-      JSONObject edge, String key, List<NodeTarget> nodes) {
-    JSONObject node = getEdgeNode(edge.getJSONObject("mappings"), key);
-    Collection<PropertyMapping> mappings = parseKeyMappings(node);
+  /**
+   * This tries to match an embedded edge node spec against an existing node target. A node targets
+   * matches if and only if it passes all the following criteria:<br>
+   * - its labels are the same as the embedded node's<br>
+   * - its property mappings form a superset of the embedded node's<br>
+   * - its key constraints match all the embedded node's by comparing label & property names<br>
+   *
+   * @param edgeNode the legacy JSON representation of the start or end node of the edge
+   * @param nodes all the processed node targets
+   * @return the matching target name or an empty optional
+   */
+  public static Optional<String> findNodeTarget(JSONObject edgeNode, List<NodeTarget> nodes) {
+    var labels = parseLabels(edgeNode);
+    var mappings = parseKeyMappings(edgeNode);
+    var keyDefinitions =
+        nodeKeyDefinitionsOf(parseNodeKeyConstraints("irrelevant", labels, edgeNode));
     return nodes.stream()
         .filter(
             target ->
-                new HashSet<>(target.getProperties()).containsAll(mappings)) // TODO: schema keys?
+                labels.equals(target.getLabels())
+                    && new HashSet<>(target.getProperties()).containsAll(mappings)
+                    && nodeKeyDefinitionsOf(target.getSchema()).containsAll(keyDefinitions))
         .map(Target::getName)
         .findFirst();
   }
 
   public static NodeTarget parseEdgeNode(JSONObject edge, String key, WriteMode writeMode) {
-    JSONObject node = getEdgeNode(edge.getJSONObject("mappings"), key);
-
-    String targetName = String.format("%s-%s", edge.getString("name"), key);
-    List<String> labels = parseLabels(node);
+    var node = edge.getJSONObject("mappings").getJSONObject(key);
+    var targetName = String.format("%s-%s", edge.getString("name"), key);
+    var labels = parseLabels(node);
 
     Map<String, PropertyMapping> keyMappings = new LinkedHashMap<>();
     List<NodeKeyConstraint> keyConstraints = new ArrayList<>();
@@ -93,8 +111,6 @@ class MappingMapper {
       visit(node.get("keys"), MappingListeners.of(propertyListener, keysListener));
       keyConstraints.addAll(keysListener.getSchema());
     }
-    List<PropertyMapping> keyProperties =
-        keyMappings.isEmpty() ? null : new ArrayList<>(keyMappings.values());
     return new NodeTarget(
         getBooleanOrDefault(edge, "active", true), // inherit active status from enclosing edge
         targetName,
@@ -103,7 +119,7 @@ class MappingMapper {
         writeMode,
         null,
         labels,
-        keyProperties,
+        new ArrayList<>(keyMappings.values()),
         new NodeSchema(null, keyConstraints, null, null, null, null, null, null, null));
   }
 
@@ -122,7 +138,7 @@ class MappingMapper {
 
   public static List<PropertyMapping> parseMappings(JSONObject mappings) {
     if (!mappings.has("properties")) {
-      return null;
+      return List.of();
     }
     JSONObject properties = mappings.getJSONObject("properties");
     Map<String, PropertyMapping> indexedMappings = new LinkedHashMap<>();
@@ -203,45 +219,47 @@ class MappingMapper {
   }
 
   public static NodeSchema parseNodeSchema(
-      String targetName, List<String> labels, JSONObject mappings) {
+      String targetName,
+      List<String> labels,
+      JSONObject mappings,
+      List<String> defaultIndexedProperties) {
+
     if (!mappings.has("properties")) {
       return null;
     }
     JSONObject properties = mappings.getJSONObject("properties");
-    List<NodeKeyConstraint> keyConstraints = new ArrayList<>();
-    if (properties.has("key")) {
-      SingleNodeKeyConstraintListener listener =
-          new SingleNodeKeyConstraintListener(targetName, labels);
-      visit(properties.get("key"), listener);
-      keyConstraints.addAll(listener.getSchema());
-    }
-    if (properties.has("keys")) {
-      CompoundNodeSchemaListener<NodeKeyConstraint> listener =
-          new NodeKeyConstraintsListener(targetName, labels);
-      visit(properties.get("keys"), listener);
-      keyConstraints.addAll(listener.getSchema());
-    }
-    CompoundNodeSchemaListener<NodeUniqueConstraint> uniqueConstraintListener =
-        new NodeUniqueConstraintsListener(targetName, labels);
+    List<NodeKeyConstraint> keyConstraints =
+        parseNodeKeyConstraints(targetName, labels, properties);
+    List<NodeUniqueConstraint> uniqueConstraints = new ArrayList<>(0);
     if (properties.has("unique")) {
+      var uniqueConstraintListener = new NodeUniqueConstraintsListener(targetName, labels);
       visit(properties.get("unique"), uniqueConstraintListener);
+      uniqueConstraints = uniqueConstraintListener.getSchema();
     }
-    NodeExistenceConstraintListener existenceConstraintListener =
-        new NodeExistenceConstraintListener(targetName, labels);
+    List<NodeExistenceConstraint> existenceConstraints = new ArrayList<>(0);
     if (properties.has("mandatory")) {
+      var existenceConstraintListener = new NodeExistenceConstraintListener(targetName, labels);
       visit(properties.get("mandatory"), existenceConstraintListener);
+      existenceConstraints = existenceConstraintListener.getSchema();
     }
-    CompoundNodeSchemaListener<NodeRangeIndex> indexListener =
-        new NodeIndexListener(targetName, labels);
-    if (properties.has("indexed")) {
+
+    List<NodeRangeIndex> indexes = new ArrayList<>(0);
+    if (!defaultIndexedProperties.isEmpty()) {
+      indexes =
+          generateAutomaticIndexes(
+              labels, defaultIndexedProperties, keyConstraints, uniqueConstraints);
+    } else if (properties.has("indexed")) {
+      CompoundNodeSchemaListener<NodeRangeIndex> indexListener =
+          new NodeIndexListener(targetName, labels);
       visit(properties.get("indexed"), indexListener);
+      indexes = indexListener.getSchema();
     }
     return new NodeSchema(
         null,
-        keyConstraints.isEmpty() ? null : keyConstraints,
-        uniqueConstraintListener.getSchema(),
-        existenceConstraintListener.getSchema(),
-        indexListener.getSchema(),
+        nullIfEmpty(keyConstraints),
+        nullIfEmpty(uniqueConstraints),
+        nullIfEmpty(existenceConstraints),
+        nullIfEmpty(indexes),
         null,
         null,
         null,
@@ -249,7 +267,8 @@ class MappingMapper {
   }
 
   public static RelationshipSchema parseEdgeSchema(
-      String targetName, String type, JSONObject mappings) {
+      String targetName, String type, JSONObject mappings, List<String> defaultIndexedProperties) {
+
     if (!mappings.has("properties")) {
       return null;
     }
@@ -267,27 +286,34 @@ class MappingMapper {
       visit(properties.get("keys"), listener);
       keyConstraints.addAll(listener.getSchema());
     }
-    CompoundRelationshipSchemaListener<RelationshipUniqueConstraint> uniqueConstraintListener =
-        new RelationshipUniqueConstraintsListener(targetName, type);
+    List<RelationshipUniqueConstraint> uniqueConstraints = new ArrayList<>(0);
     if (properties.has("unique")) {
+      var uniqueConstraintListener = new RelationshipUniqueConstraintsListener(targetName, type);
       visit(properties.get("unique"), uniqueConstraintListener);
+      uniqueConstraints = uniqueConstraintListener.getSchema();
     }
-    RelationshipExistenceConstraintListener existenceConstraintListener =
-        new RelationshipExistenceConstraintListener(targetName, type);
+    List<RelationshipExistenceConstraint> existenceConstraints = new ArrayList<>(0);
     if (properties.has("mandatory")) {
+      var existenceConstraintListener =
+          new RelationshipExistenceConstraintListener(targetName, type);
       visit(properties.get("mandatory"), existenceConstraintListener);
+      existenceConstraints = existenceConstraintListener.getSchema();
     }
-    CompoundRelationshipSchemaListener<RelationshipRangeIndex> indexListener =
-        new RelationshipIndexListener(targetName, type);
-    if (properties.has("indexed")) {
+    List<RelationshipRangeIndex> indexes = new ArrayList<>(0);
+    if (!defaultIndexedProperties.isEmpty()) {
+      indexes =
+          generateAutomaticIndexes(
+              type, defaultIndexedProperties, keyConstraints, uniqueConstraints);
+    } else if (properties.has("indexed")) {
+      var indexListener = new RelationshipIndexListener(targetName, type);
       visit(properties.get("indexed"), indexListener);
     }
     return new RelationshipSchema(
         null,
-        keyConstraints.isEmpty() ? null : keyConstraints,
-        uniqueConstraintListener.getSchema(),
-        existenceConstraintListener.getSchema(),
-        indexListener.getSchema(),
+        nullIfEmpty(keyConstraints),
+        nullIfEmpty(uniqueConstraints),
+        nullIfEmpty(existenceConstraints),
+        nullIfEmpty(indexes),
         null,
         null,
         null,
@@ -325,21 +351,6 @@ class MappingMapper {
     return new PropertyMapping(field, property, null);
   }
 
-  private static JSONObject getEdgeNode(JSONObject edge, String key) {
-    if (!edge.has(key)) {
-      throw new IllegalArgumentException(
-          String.format("could not find %s key in relationship target", key));
-    }
-    JSONObject node = edge.getJSONObject(key);
-    if (!node.has("key") && !node.has("keys")) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Edge node fragment of type %s should define a \"key\" or \"keys\" attribute. None found",
-              key));
-    }
-    return node;
-  }
-
   private static Collection<PropertyMapping> parseKeyMappings(JSONObject node) {
     Map<String, PropertyMapping> keyMappings = new LinkedHashMap<>();
     var propertyListener = new PropertyMappingListener(keyMappings, MappingMapper::untypedMapping);
@@ -350,5 +361,130 @@ class MappingMapper {
       visit(node.get("keys"), propertyListener);
     }
     return keyMappings.values();
+  }
+
+  private static List<NodeRangeIndex> generateAutomaticIndexes(
+      List<String> labels,
+      List<String> defaultIndexedProperties,
+      List<NodeKeyConstraint> keyConstraints,
+      List<NodeUniqueConstraint> uniqueConstraints) {
+    var properties = new ArrayList<>(defaultIndexedProperties);
+    properties.removeAll(
+        keyConstraints.stream()
+            .flatMap(constraint -> constraint.getProperties().stream())
+            .distinct()
+            .collect(Collectors.toList()));
+    properties.removeAll(
+        uniqueConstraints.stream()
+            .flatMap(constraint -> constraint.getProperties().stream())
+            .distinct()
+            .collect(Collectors.toList()));
+    return properties.stream()
+        .flatMap(property -> labels.stream().map(label -> automaticNodeIndex(label, property)))
+        .collect(Collectors.toList());
+  }
+
+  private static List<RelationshipRangeIndex> generateAutomaticIndexes(
+      String type,
+      List<String> defaultIndexedProperties,
+      List<RelationshipKeyConstraint> keyConstraints,
+      List<RelationshipUniqueConstraint> uniqueConstraints) {
+    var properties = new ArrayList<>(defaultIndexedProperties);
+    properties.removeAll(
+        keyConstraints.stream()
+            .flatMap(constraint -> constraint.getProperties().stream())
+            .distinct()
+            .collect(Collectors.toList()));
+    properties.removeAll(
+        uniqueConstraints.stream()
+            .flatMap(constraint -> constraint.getProperties().stream())
+            .distinct()
+            .collect(Collectors.toList()));
+    return properties.stream()
+        .map(property -> automaticRelationshipIndex(type, property))
+        .collect(Collectors.toList());
+  }
+
+  private static NodeRangeIndex automaticNodeIndex(String label, String property) {
+    return new NodeRangeIndex(
+        String.format("node/default-index-for-%s-%s", label, property), label, List.of(property));
+  }
+
+  private static RelationshipRangeIndex automaticRelationshipIndex(String type, String property) {
+    return new RelationshipRangeIndex(
+        String.format("edge/default-index-for-%s-%s", type, property), List.of(property));
+  }
+
+  private static <T> List<T> nullIfEmpty(List<T> items) {
+    return items.isEmpty() ? null : items;
+  }
+
+  private static List<NodeKeyConstraint> parseNodeKeyConstraints(
+      String targetName, List<String> labels, JSONObject properties) {
+    List<NodeKeyConstraint> keyConstraints = new ArrayList<>();
+    if (properties.has("key")) {
+      var listener = new SingleNodeKeyConstraintListener(targetName, labels);
+      visit(properties.get("key"), listener);
+      keyConstraints.addAll(listener.getSchema());
+    }
+    if (properties.has("keys")) {
+      var listener = new NodeKeyConstraintsListener(targetName, labels);
+      visit(properties.get("keys"), listener);
+      keyConstraints.addAll(listener.getSchema());
+    }
+    return keyConstraints;
+  }
+
+  private static Set<NodeKeyDefinition> nodeKeyDefinitionsOf(NodeSchema schema) {
+    if (schema == null) {
+      return Set.of();
+    }
+    var keyConstraints = schema.getKeyConstraints();
+    if (keyConstraints == null) {
+      return Set.of();
+    }
+    return nodeKeyDefinitionsOf(keyConstraints);
+  }
+
+  private static Set<NodeKeyDefinition> nodeKeyDefinitionsOf(
+      List<NodeKeyConstraint> keyConstraints) {
+    return keyConstraints.stream()
+        .map(constraint -> new NodeKeyDefinition(constraint.getLabel(), constraint.getProperties()))
+        .collect(Collectors.toSet());
+  }
+}
+
+class NodeKeyDefinition {
+  private final String label;
+  private final List<String> properties;
+
+  public NodeKeyDefinition(String label, List<String> properties) {
+    this.label = label;
+    this.properties = properties;
+  }
+
+  public String getLabel() {
+    return label;
+  }
+
+  public List<String> getProperties() {
+    return properties;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof NodeKeyDefinition)) {
+      return false;
+    }
+    NodeKeyDefinition that = (NodeKeyDefinition) o;
+    return Objects.equals(label, that.label) && Objects.equals(properties, that.properties);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(label, properties);
   }
 }

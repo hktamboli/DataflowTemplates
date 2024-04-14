@@ -15,30 +15,6 @@
  */
 package com.google.cloud.teleport.v2.neo4j.model.helpers;
 
-import com.google.cloud.teleport.v2.neo4j.model.enums.ArtifactType;
-import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
-import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.neo4j.importer.v1.targets.Aggregation;
-import org.neo4j.importer.v1.targets.CustomQueryTarget;
-import org.neo4j.importer.v1.targets.NodeMatchMode;
-import org.neo4j.importer.v1.targets.NodeTarget;
-import org.neo4j.importer.v1.targets.Order;
-import org.neo4j.importer.v1.targets.OrderBy;
-import org.neo4j.importer.v1.targets.RelationshipTarget;
-import org.neo4j.importer.v1.targets.SourceTransformations;
-import org.neo4j.importer.v1.targets.Targets;
-import org.neo4j.importer.v1.targets.WriteMode;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getBooleanOrDefault;
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getIntegerOrNull;
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.JsonObjects.getStringOrDefault;
@@ -50,6 +26,30 @@ import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.par
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseNodeSchema;
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.MappingMapper.parseType;
 import static com.google.cloud.teleport.v2.neo4j.model.helpers.SourceMapper.DEFAULT_SOURCE_NAME;
+
+import com.google.cloud.teleport.v2.neo4j.model.enums.ArtifactType;
+import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
+import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.neo4j.importer.v1.targets.Aggregation;
+import org.neo4j.importer.v1.targets.CustomQueryTarget;
+import org.neo4j.importer.v1.targets.NodeMatchMode;
+import org.neo4j.importer.v1.targets.NodeTarget;
+import org.neo4j.importer.v1.targets.Order;
+import org.neo4j.importer.v1.targets.OrderBy;
+import org.neo4j.importer.v1.targets.PropertyMapping;
+import org.neo4j.importer.v1.targets.RelationshipTarget;
+import org.neo4j.importer.v1.targets.SourceTransformations;
+import org.neo4j.importer.v1.targets.Targets;
+import org.neo4j.importer.v1.targets.WriteMode;
 
 /**
  * Helper class for parsing legacy json into an {@link org.neo4j.importer.v1.ImportSpecification}'s
@@ -84,8 +84,7 @@ class TargetMapper {
     }
   }
 
-  public static Targets parse(JSONArray json, OptionsParams options) {
-    // TODO: add missing support for index_all_properties
+  public static Targets parse(JSONArray json, OptionsParams options, boolean indexAllProperties) {
     List<NodeTarget> nodes = new ArrayList<>();
     List<RelationshipTarget> relationshipTargets = new ArrayList<>();
     List<CustomQueryTarget> queryTargets = new ArrayList<>();
@@ -96,7 +95,7 @@ class TargetMapper {
       if (!target.has("node")) {
         continue;
       }
-      nodes.add(parseNode(i, target.getJSONObject("node")));
+      nodes.add(parseNode(i, target.getJSONObject("node"), indexAllProperties));
     }
 
     // second pass: go through edge targets' source/target nodes
@@ -106,12 +105,19 @@ class TargetMapper {
         continue;
       }
       var edge = target.getJSONObject("edge");
-      var matchMode = parseNodeMatchMode(edge, parseWriteMode(edge.getString("mode")));
-      if (findNodeTarget(edge, "source", nodes).isEmpty()) {
-        nodes.add(newEdgeNodeTarget(edge, "source", matchMode));
+      var edgeWriteMode = parseWriteMode(edge.getString("mode"));
+      var nodeWriteMode = asNodeWriteMode(parseNodeMatchMode(edge, edgeWriteMode));
+      var mappings = edge.getJSONObject("mappings");
+      // note: indexAllProperties is ignored here since embedded node definitions
+      // only declare key properties. Key properties are backed by key constraints, and these
+      // constraints are always created with an index.
+      if (findNodeTarget(mappings.getJSONObject("source"), nodes).isEmpty()) {
+        var sourceNode = parseEdgeNode(edge, "source", nodeWriteMode);
+        nodes.add(sourceNode);
       }
-      if (findNodeTarget(edge, "target", nodes).isEmpty()) {
-        nodes.add(newEdgeNodeTarget(edge, "target", matchMode));
+      if (findNodeTarget(mappings.getJSONObject("target"), nodes).isEmpty()) {
+        var targetNode = parseEdgeNode(edge, "target", nodeWriteMode);
+        nodes.add(targetNode);
       }
     }
 
@@ -119,7 +125,8 @@ class TargetMapper {
     for (int i = 0; i < json.length(); i++) {
       var target = json.getJSONObject(i);
       if (target.has("edge")) {
-        relationshipTargets.add(parseEdge(i, target.getJSONObject("edge"), nodes));
+        relationshipTargets.add(
+            parseEdge(i, target.getJSONObject("edge"), nodes, indexAllProperties));
         continue;
       }
       if (target.has("custom_query")) {
@@ -129,10 +136,12 @@ class TargetMapper {
     return new Targets(nodes, relationshipTargets, queryTargets);
   }
 
-  private static NodeTarget parseNode(int index, JSONObject node) {
-    JSONObject mappings = node.getJSONObject("mappings");
-    List<String> labels = parseLabels(mappings);
-    String targetName = normalizeName(index, node.getString("name"), ArtifactType.node);
+  private static NodeTarget parseNode(int index, JSONObject node, boolean indexAllProperties) {
+    var mappings = node.getJSONObject("mappings");
+    var labels = parseLabels(mappings);
+    var targetName = normalizeName(index, node.getString("name"), ArtifactType.node);
+    var properties = parseMappings(mappings);
+    var defaultIndexedProperties = getDefaultIndexedProperties(indexAllProperties, properties);
     return new NodeTarget(
         getBooleanOrDefault(node, "active", true),
         targetName,
@@ -141,16 +150,19 @@ class TargetMapper {
         parseWriteMode(node.getString("mode")),
         parseSourceTransformations(node),
         labels,
-        parseMappings(mappings),
-        parseNodeSchema(targetName, labels, mappings));
+        properties,
+        parseNodeSchema(targetName, labels, mappings, defaultIndexedProperties));
   }
 
-  private static RelationshipTarget parseEdge(int index, JSONObject edge, List<NodeTarget> nodes) {
-    WriteMode writeMode = parseWriteMode(edge.getString("mode"));
-    NodeMatchMode nodeMatchMode = parseNodeMatchMode(edge, writeMode);
-    JSONObject mappings = edge.getJSONObject("mappings");
-    String targetName = normalizeName(index, edge.getString("name"), ArtifactType.edge);
-    String relationshipType = parseType(mappings);
+  private static RelationshipTarget parseEdge(
+      int index, JSONObject edge, List<NodeTarget> nodes, boolean indexAllProperties) {
+    var writeMode = parseWriteMode(edge.getString("mode"));
+    var nodeMatchMode = parseNodeMatchMode(edge, writeMode);
+    var mappings = edge.getJSONObject("mappings");
+    var targetName = normalizeName(index, edge.getString("name"), ArtifactType.edge);
+    var relationshipType = parseType(mappings);
+    var properties = parseMappings(mappings);
+    var defaultIndexedProperties = getDefaultIndexedProperties(indexAllProperties, properties);
     return new RelationshipTarget(
         getBooleanOrDefault(edge, "active", true),
         targetName,
@@ -160,10 +172,10 @@ class TargetMapper {
         writeMode,
         nodeMatchMode,
         parseSourceTransformations(edge),
-        findNodeTarget(edge, "source", nodes).get(),
-        findNodeTarget(edge, "target", nodes).get(),
-        parseMappings(mappings),
-        parseEdgeSchema(targetName, relationshipType, mappings));
+        findNodeTarget(mappings.getJSONObject("source"), nodes).get(),
+        findNodeTarget(mappings.getJSONObject("target"), nodes).get(),
+        properties,
+        parseEdgeSchema(targetName, relationshipType, mappings, defaultIndexedProperties));
   }
 
   private static CustomQueryTarget parseCustomQuery(
@@ -214,6 +226,7 @@ class TargetMapper {
   }
 
   // visible for testing
+
   static List<OrderBy> parseOrderBy(JSONObject json) {
     if (!json.has("order_by")) {
       return null;
@@ -233,11 +246,6 @@ class TargetMapper {
               return new OrderBy(expression, order);
             })
         .collect(Collectors.toList());
-  }
-
-  private static NodeTarget newEdgeNodeTarget(
-      JSONObject edge, String key, NodeMatchMode matchMode) {
-    return parseEdgeNode(edge, key, asNodeWriteMode(matchMode));
   }
 
   private static WriteMode parseWriteMode(String mode) {
@@ -291,5 +299,13 @@ class TargetMapper {
       lastPosition = matcher.start();
     }
     return lastPosition;
+  }
+
+  private static List<String> getDefaultIndexedProperties(
+      boolean indexAllProperties, List<PropertyMapping> properties) {
+    if (!indexAllProperties) {
+      return new ArrayList<>(0);
+    }
+    return properties.stream().map(PropertyMapping::getTargetProperty).collect(Collectors.toList());
   }
 }
