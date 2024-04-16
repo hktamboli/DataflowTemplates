@@ -80,17 +80,17 @@ public class TextParserUtils {
       return new String[0];
     }
 
-    String[] rows = new String[lines.length()];
+    var rows = new String[lines.length()];
     for (int i = 0; i < lines.length(); i++) {
-      JSONArray rowArr = lines.getJSONArray(i);
-      StringBuilder sb = new StringBuilder();
-      for (int j = 0; j < rowArr.length(); j++) {
+      var row = lines.getJSONArray(i);
+      var builder = new StringBuilder();
+      for (int j = 0; j < row.length(); j++) {
         if (j > 0) {
-          sb.append(delimiter);
+          builder.append(delimiter);
         }
-        sb.append(rowArr.optString(j));
+        builder.append(row.optString(j));
       }
-      rows[i] = sb.toString();
+      rows[i] = builder.toString();
     }
     return rows;
   }

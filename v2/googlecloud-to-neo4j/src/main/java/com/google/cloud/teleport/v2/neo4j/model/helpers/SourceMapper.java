@@ -56,15 +56,25 @@ public class SourceMapper {
   }
 
   public static Source parse(JSONObject rawSource, OptionsParams options) {
-    var sourceType = getStringOrDefault(rawSource, "type", "text");
+    var sourceType = getStringOrDefault(rawSource, "type", "text").toLowerCase(Locale.ROOT);
     switch (sourceType) {
-      case "text":
-        return parseTextSource(rawSource, options);
       case "bigquery":
         return parseBigQuerySource(rawSource, options);
+      case "text":
+        return parseTextSource(rawSource, options);
       default:
         throw new RuntimeException(String.format("Unsupported source type: %s", sourceType));
     }
+  }
+
+  private static BigQuerySource parseBigQuerySource(JSONObject rawSource, OptionsParams options) {
+    var sourceName = getStringOrDefault(rawSource, "name", DEFAULT_SOURCE_NAME);
+    var sql = rawSource.getString("query");
+    if (StringUtils.isNotEmpty(options.getReadQuery())) {
+      sql = options.getReadQuery();
+    }
+    sql = ModelUtils.replaceVariableTokens(sql, options.getTokenMap());
+    return new BigQuerySource(sourceName, sql);
   }
 
   private static TextSource parseTextSource(JSONObject rawSource, OptionsParams options) {
@@ -109,15 +119,5 @@ public class SourceMapper {
       throw new RuntimeException("data should either be a JSON array of array or plain string");
     }
     return new InlineTextSource(sourceName, data, header);
-  }
-
-  private static BigQuerySource parseBigQuerySource(JSONObject rawSource, OptionsParams options) {
-    var sourceName = getStringOrDefault(rawSource, "name", DEFAULT_SOURCE_NAME);
-    String sql = rawSource.getString("query");
-    if (StringUtils.isNotEmpty(options.getReadQuery())) {
-      sql = options.getReadQuery();
-    }
-    sql = ModelUtils.replaceVariableTokens(sql, options.getTokenMap());
-    return new BigQuerySource(sourceName, sql);
   }
 }

@@ -19,11 +19,16 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import java.util.List;
+import java.util.Map;
 import org.json.JSONObject;
 import org.junit.Test;
+import org.neo4j.importer.v1.sources.BigQuerySource;
+import org.neo4j.importer.v1.sources.ExternalTextSource;
 import org.neo4j.importer.v1.sources.InlineTextSource;
 import org.neo4j.importer.v1.sources.Source;
+import org.neo4j.importer.v1.sources.TextFormat;
 
+@SuppressWarnings("deprecation")
 public class SourceMapperTest {
 
   @Test
@@ -39,5 +44,141 @@ public class SourceMapperTest {
     assertThat(source).isInstanceOf(InlineTextSource.class);
     InlineTextSource inlineTextSource = (InlineTextSource) source;
     assertThat(inlineTextSource.getHeader()).isEqualTo(List.of("foo", "bar", "qix"));
+  }
+
+  @Test
+  public void parses_minimal_BigQuery_source() {
+    var json =
+        new JSONObject(
+            Map.of(
+                "type", "bigquery",
+                "query", "SELECT 42"));
+
+    Source source = SourceMapper.parse(json, new OptionsParams());
+
+    assertThat(source).isEqualTo(new BigQuerySource("", "SELECT 42"));
+  }
+
+  @Test
+  public void parses_BigQuery_source() {
+    var json =
+        new JSONObject(
+            Map.of(
+                "type", "bigquery",
+                "query", "SELECT name FROM $table"));
+
+    OptionsParams options = new OptionsParams();
+    options.overlayTokens("{\"table\": \"placeholder-table\"}");
+
+    Source source = SourceMapper.parse(json, options);
+
+    assertThat(source).isEqualTo(new BigQuerySource("", "SELECT name FROM placeholder-table"));
+  }
+
+  @Test
+  public void parses_BigQuery_source_with_replaced_query() {
+    var json =
+        new JSONObject(
+            Map.of(
+                "type", "bigquery",
+                "query", "replaced"));
+
+    OptionsParams options = new OptionsParams();
+    options.overlayTokens(
+        "{\"table\": \"placeholder-table\", \"readQuery\": \"SELECT name FROM $table\"}");
+
+    Source source = SourceMapper.parse(json, options);
+
+    assertThat(source).isEqualTo(new BigQuerySource("", "SELECT name FROM placeholder-table"));
+  }
+
+  @Test
+  public void parses_minimal_external_text_source() {
+    var json =
+        new JSONObject(
+            Map.of(
+                "ordered_field_names", "col1,col2,col3",
+                "uri", "https://example.com"));
+
+    Source source = SourceMapper.parse(json, new OptionsParams());
+
+    assertThat(source)
+        .isEqualTo(
+            new ExternalTextSource(
+                "",
+                List.of("https://example.com"),
+                List.of("col1", "col2", "col3"),
+                TextFormat.DEFAULT,
+                ",",
+                null));
+  }
+
+  @Test
+  public void parses_external_text_source() {
+    var json =
+        new JSONObject(
+            Map.of(
+                "name", "a-source",
+                "format", "EXCEL",
+                "delimiter", "%",
+                "separator", "=",
+                "ordered_field_names", "col1,col2,col3",
+                "url", "https://example.$ext"));
+    OptionsParams options = new OptionsParams();
+    options.overlayTokens("{\"ext\": \"com\"}");
+
+    Source source = SourceMapper.parse(json, options);
+
+    assertThat(source)
+        .isEqualTo(
+            new ExternalTextSource(
+                "a-source",
+                List.of("https://example.com"),
+                List.of("col1", "col2", "col3"),
+                TextFormat.EXCEL,
+                "%",
+                "="));
+  }
+
+  @Test
+  public void parses_minimal_inline_text_source() {
+    var json =
+        new JSONObject(
+            Map.of(
+                "ordered_field_names", "col1,col2,col3",
+                "data", "value1,value2,value3\nvalue4,value5,value6"));
+
+    Source source = SourceMapper.parse(json, new OptionsParams());
+
+    assertThat(source)
+        .isEqualTo(
+            new InlineTextSource(
+                "",
+                List.of(
+                    List.of("value1", "value2", "value3"), List.of("value4", "value5", "value6")),
+                List.of("col1", "col2", "col3")));
+  }
+
+  @Test
+  public void parses_inline_text_source() {
+    var json =
+        new JSONObject(
+            Map.of(
+                "ordered_field_names", "col1,col2,col3",
+                "format", "EXCEL",
+                "data",
+                    List.of(
+                        List.of("value1", "value2", "value3"),
+                        List.of("value4", "value5", "value6"))));
+
+    Source source = SourceMapper.parse(json, new OptionsParams());
+
+    assertThat(source)
+        .isEqualTo(
+            new InlineTextSource(
+                "",
+                List.of(
+                    List.of("value1", "value2", "value3"), List.of("value4", "value5", "value6")),
+                List.of("col1", "col2", "col3")));
   }
 }
