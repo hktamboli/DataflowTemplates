@@ -241,7 +241,7 @@ class SingleRelationshipKeyConstraintListener implements MappingListener {
     String name =
         String.format(
             "%s-%s-relationship-single-key-for-%s", targetName, type, String.join("-", properties));
-    schema = new RelationshipKeyConstraint(name, properties, null);
+    schema = new RelationshipKeyConstraint(name, new ArrayList<>(properties), null);
     properties.clear();
   }
 }

@@ -37,6 +37,12 @@ import org.neo4j.importer.v1.targets.Order;
 import org.neo4j.importer.v1.targets.OrderBy;
 import org.neo4j.importer.v1.targets.PropertyMapping;
 import org.neo4j.importer.v1.targets.PropertyType;
+import org.neo4j.importer.v1.targets.RelationshipExistenceConstraint;
+import org.neo4j.importer.v1.targets.RelationshipKeyConstraint;
+import org.neo4j.importer.v1.targets.RelationshipRangeIndex;
+import org.neo4j.importer.v1.targets.RelationshipSchema;
+import org.neo4j.importer.v1.targets.RelationshipTarget;
+import org.neo4j.importer.v1.targets.RelationshipUniqueConstraint;
 import org.neo4j.importer.v1.targets.SourceTransformations;
 import org.neo4j.importer.v1.targets.Targets;
 import org.neo4j.importer.v1.targets.WriteMode;
@@ -53,7 +59,7 @@ public class TargetMapperTest {
                 Map.of(
                     "name", "",
                     "mode", "append",
-                    "mappings", Map.of("label", "\"Placeholder\""))));
+                    "mappings", Map.of())));
 
     var targets =
         TargetMapper.parse(new JSONArray(List.of(nodeTarget)), new OptionsParams(), false);
@@ -62,20 +68,12 @@ public class TargetMapperTest {
         .isEqualTo(
             List.of(
                 new NodeTarget(
-                    true,
-                    "node/0",
-                    "",
-                    null,
-                    WriteMode.CREATE,
-                    null,
-                    List.of("Placeholder"),
-                    List.of(),
-                    null)));
+                    true, "node/0", "", null, WriteMode.CREATE, null, List.of(), List.of(), null)));
     assertThat(targets.getRelationships()).isEmpty();
     assertThat(targets.getCustomQueries()).isEmpty();
   }
 
-  @Test // TODO: dependencies
+  @Test
   public void parses_node_target() {
     var nodeTarget =
         new JSONObject(
@@ -132,7 +130,7 @@ public class TargetMapperTest {
     var expectedTarget =
         new NodeTarget(
             false,
-            "node/a-target",
+            "a-target",
             "a-source",
             null,
             WriteMode.MERGE,
@@ -163,52 +161,50 @@ public class TargetMapperTest {
                 null,
                 List.of(
                     new NodeKeyConstraint(
-                        "node/a-target-Placeholder1-node-single-key-for-prop01",
+                        "a-target-Placeholder1-node-single-key-for-prop01",
                         "Placeholder1",
                         List.of("prop01"),
                         null),
                     new NodeKeyConstraint(
-                        "node/a-target-Placeholder2-node-single-key-for-prop01",
+                        "a-target-Placeholder2-node-single-key-for-prop01",
                         "Placeholder2",
                         List.of("prop01"),
                         null),
                     new NodeKeyConstraint(
-                        "node/a-target-Placeholder1-node-key-for-prop02",
+                        "a-target-Placeholder1-node-key-for-prop02",
                         "Placeholder1",
                         List.of("prop02"),
                         null),
                     new NodeKeyConstraint(
-                        "node/a-target-Placeholder2-node-key-for-prop02",
+                        "a-target-Placeholder2-node-key-for-prop02",
                         "Placeholder2",
                         List.of("prop02"),
                         null)),
                 List.of(
                     new NodeUniqueConstraint(
-                        "node/a-target-Placeholder1-node-unique-for-prop03",
+                        "a-target-Placeholder1-node-unique-for-prop03",
                         "Placeholder1",
                         List.of("prop03"),
                         null),
                     new NodeUniqueConstraint(
-                        "node/a-target-Placeholder2-node-unique-for-prop03",
+                        "a-target-Placeholder2-node-unique-for-prop03",
                         "Placeholder2",
                         List.of("prop03"),
                         null)),
                 List.of(
                     new NodeExistenceConstraint(
-                        "node/a-target-Placeholder1-node-not-null-for-prop04",
-                        "Placeholder1",
-                        "prop04"),
+                        "a-target-Placeholder1-node-not-null-for-prop04", "Placeholder1", "prop04"),
                     new NodeExistenceConstraint(
-                        "node/a-target-Placeholder2-node-not-null-for-prop04",
+                        "a-target-Placeholder2-node-not-null-for-prop04",
                         "Placeholder2",
                         "prop04")),
                 List.of(
                     new NodeRangeIndex(
-                        "node/a-target-Placeholder1-node-range-index-for-prop05",
+                        "a-target-Placeholder1-node-range-index-for-prop05",
                         "Placeholder1",
                         List.of("prop05")),
                     new NodeRangeIndex(
-                        "node/a-target-Placeholder2-node-range-index-for-prop05",
+                        "a-target-Placeholder2-node-range-index-for-prop05",
                         "Placeholder2",
                         List.of("prop05"))),
                 null,
@@ -259,27 +255,27 @@ public class TargetMapperTest {
             null,
             List.of(
                 new NodeKeyConstraint(
-                    "node/a-target-Placeholder-node-single-key-for-prop01",
+                    "a-target-Placeholder-node-single-key-for-prop01",
                     "Placeholder",
                     List.of("prop01"),
                     null),
                 new NodeKeyConstraint(
-                    "node/a-target-Placeholder-node-key-for-prop02",
+                    "a-target-Placeholder-node-key-for-prop02",
                     "Placeholder",
                     List.of("prop02"),
                     null)),
             List.of(
                 new NodeUniqueConstraint(
-                    "node/a-target-Placeholder-node-unique-for-prop03",
+                    "a-target-Placeholder-node-unique-for-prop03",
                     "Placeholder",
                     List.of("prop03"),
                     null)),
             List.of(
                 new NodeExistenceConstraint(
-                    "node/a-target-Placeholder-node-not-null-for-prop04", "Placeholder", "prop04")),
+                    "a-target-Placeholder-node-not-null-for-prop04", "Placeholder", "prop04")),
             List.of(
                 new NodeRangeIndex(
-                    "node/a-target-Placeholder-node-range-index-for-prop05",
+                    "a-target-Placeholder-node-range-index-for-prop05",
                     "Placeholder",
                     List.of("prop05")),
                 new NodeRangeIndex(
@@ -310,6 +306,498 @@ public class TargetMapperTest {
             null);
     var target = targets.getNodes().iterator().next();
     assertThat(target.getSchema()).isEqualTo(expectedSchema);
+  }
+
+  @Test
+  public void parses_minimal_edge_target() {
+    var edgeTarget =
+        new JSONObject(
+            Map.of(
+                "edge",
+                Map.of(
+                    "name", "",
+                    "mode", "append",
+                    "mappings", Map.of())));
+
+    var targets =
+        TargetMapper.parse(new JSONArray(List.of(edgeTarget)), new OptionsParams(), false);
+
+    assertThat(targets.getNodes()).isEmpty();
+    assertThat(targets.getRelationships())
+        .isEqualTo(
+            List.of(
+                new RelationshipTarget(
+                    true,
+                    "edge/0",
+                    "",
+                    null,
+                    null,
+                    WriteMode.CREATE,
+                    NodeMatchMode.MERGE,
+                    null,
+                    null,
+                    null,
+                    List.of(),
+                    null)));
+    assertThat(targets.getCustomQueries()).isEmpty();
+  }
+
+  @Test
+  public void parses_edge_target_with_matching_node_targets() {
+    var sourceNodeTarget =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name", "a-source-node-target",
+                    "source", "a-source",
+                    "mode", "append",
+                    "mappings",
+                        Map.of("label", "Placeholder1", "properties", Map.of("key", "prop1")))));
+    var targetNodeTarget =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name", "a-target-node-target",
+                    "source", "a-source",
+                    "mode", "append",
+                    "mappings",
+                        Map.of("label", "Placeholder2", "properties", Map.of("key", "prop2")))));
+    var edgeTarget =
+        new JSONObject(
+            Map.of(
+                "edge",
+                Map.of(
+                    "active",
+                    false,
+                    "name",
+                    "a-target",
+                    "source",
+                    "a-source",
+                    "mode",
+                    "MERGE",
+                    "node_match_mode",
+                    "match",
+                    "transform",
+                    Map.of(
+                        "group",
+                        true,
+                        "aggregations",
+                        List.of(
+                            Map.of("field", "field01", "expr", "42"),
+                            Map.of("field", "field02", "expr", "24")),
+                        "where",
+                        "1+2=3",
+                        "order_by",
+                        "field01 ASC, field02 DESC",
+                        "limit",
+                        100),
+                    "mappings",
+                    Map.of(
+                        "type",
+                        "\"PLACEHOLDER\"",
+                        "source",
+                        Map.of(
+                            "label", "Placeholder1",
+                            "key", "prop1"),
+                        "target",
+                        Map.of(
+                            "label", "Placeholder2",
+                            "key", "prop2"),
+                        "properties",
+                        Map.<String, Object>ofEntries(
+                            entry("key", List.of(Map.of("field01", "prop01"))),
+                            entry("keys", List.of(Map.of("field02", "prop02"))),
+                            entry("unique", List.of(Map.of("field03", "prop03"))),
+                            entry("mandatory", List.of(Map.of("field04", "prop04"))),
+                            entry("indexed", List.of(Map.of("field05", "prop05"))),
+                            entry("dates", List.of(Map.of("field06", "prop06"))),
+                            entry("doubles", List.of(Map.of("field07", "prop07"))),
+                            entry("floats", List.of(Map.of("field08", "prop08"))),
+                            entry("longs", List.of(Map.of("field09", "prop09"))),
+                            entry("integers", List.of(Map.of("field10", "prop10"))),
+                            entry("strings", List.of(Map.of("field11", "prop11"))),
+                            entry("points", List.of(Map.of("field12", "prop12"))),
+                            entry("booleans", List.of(Map.of("field13", "prop13"))),
+                            entry(
+                                "bytearrays", List.of(Map.of("field14", "prop14"), "prop15")))))));
+
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(sourceNodeTarget, targetNodeTarget, edgeTarget)),
+            new OptionsParams(),
+            false);
+
+    assertThat(targets.getNodes())
+        .isEqualTo(
+            List.of(
+                new NodeTarget(
+                    true,
+                    "a-source-node-target",
+                    "a-source",
+                    null,
+                    WriteMode.CREATE,
+                    null,
+                    List.of("Placeholder1"),
+                    List.of(new PropertyMapping("prop1", "prop1", null)),
+                    new NodeSchema(
+                        null,
+                        List.of(
+                            new NodeKeyConstraint(
+                                "a-source-node-target-Placeholder1-node-single-key-for-prop1",
+                                "Placeholder1",
+                                List.of("prop1"),
+                                null)),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null)),
+                new NodeTarget(
+                    true,
+                    "a-target-node-target",
+                    "a-source",
+                    null,
+                    WriteMode.CREATE,
+                    null,
+                    List.of("Placeholder2"),
+                    List.of(new PropertyMapping("prop2", "prop2", null)),
+                    new NodeSchema(
+                        null,
+                        List.of(
+                            new NodeKeyConstraint(
+                                "a-target-node-target-Placeholder2-node-single-key-for-prop2",
+                                "Placeholder2",
+                                List.of("prop2"),
+                                null)),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null))));
+    assertThat(targets.getRelationships())
+        .isEqualTo(
+            List.of(
+                new RelationshipTarget(
+                    false,
+                    "a-target",
+                    "a-source",
+                    null,
+                    "PLACEHOLDER",
+                    WriteMode.MERGE,
+                    NodeMatchMode.MATCH,
+                    new SourceTransformations(
+                        true,
+                        List.of(new Aggregation("42", "field01"), new Aggregation("24", "field02")),
+                        "1+2=3",
+                        List.of(
+                            new OrderBy("field01", Order.ASC), new OrderBy("field02", Order.DESC)),
+                        100),
+                    "a-source-node-target",
+                    "a-target-node-target",
+                    List.of(
+                        new PropertyMapping("field01", "prop01", null),
+                        new PropertyMapping("field02", "prop02", null),
+                        new PropertyMapping("field03", "prop03", null),
+                        new PropertyMapping("field04", "prop04", null),
+                        new PropertyMapping("field05", "prop05", null),
+                        new PropertyMapping("field06", "prop06", PropertyType.ZONED_DATETIME),
+                        new PropertyMapping("field07", "prop07", PropertyType.FLOAT),
+                        new PropertyMapping("field08", "prop08", PropertyType.FLOAT),
+                        new PropertyMapping("field09", "prop09", PropertyType.INTEGER),
+                        new PropertyMapping("field10", "prop10", PropertyType.INTEGER),
+                        new PropertyMapping("field11", "prop11", PropertyType.STRING),
+                        new PropertyMapping("field12", "prop12", PropertyType.POINT),
+                        new PropertyMapping("field13", "prop13", PropertyType.BOOLEAN),
+                        new PropertyMapping("field14", "prop14", PropertyType.BYTE_ARRAY),
+                        new PropertyMapping("prop15", "prop15", PropertyType.BYTE_ARRAY)),
+                    new RelationshipSchema(
+                        null,
+                        List.of(
+                            new RelationshipKeyConstraint(
+                                "a-target-PLACEHOLDER-relationship-single-key-for-prop01",
+                                List.of("prop01"),
+                                null),
+                            new RelationshipKeyConstraint(
+                                "a-target-PLACEHOLDER-relationship-key-for-prop02",
+                                List.of("prop02"),
+                                null)),
+                        List.of(
+                            new RelationshipUniqueConstraint(
+                                "a-target-PLACEHOLDER-relationship-unique-for-prop03",
+                                List.of("prop03"),
+                                null)),
+                        List.of(
+                            new RelationshipExistenceConstraint(
+                                "a-target-PLACEHOLDER-relationship-not-null-for-prop04", "prop04")),
+                        List.of(
+                            new RelationshipRangeIndex(
+                                "a-target-PLACEHOLDER-relationship-range-index-for-prop05",
+                                List.of("prop05"))),
+                        null,
+                        null,
+                        null,
+                        null))));
+    assertThat(targets.getCustomQueries()).isEmpty();
+  }
+
+  @Test
+  public void parses_edge_target_without_matching_node_targets() {
+    var edgeTarget =
+        new JSONObject(
+            Map.of(
+                "edge",
+                Map.of(
+                    "active", false,
+                    "name", "a-target",
+                    "source", "a-source",
+                    "mode", "MERGE",
+                    "node_match_mode", "match",
+                    "mappings",
+                        Map.of(
+                            "type",
+                            "\"PLACEHOLDER\"",
+                            "source",
+                            Map.of(
+                                "label", "Placeholder1",
+                                "key", "prop1"),
+                            "target",
+                            Map.of(
+                                "label", "Placeholder2",
+                                "key", "prop2"),
+                            "properties",
+                            Map.<String, Object>ofEntries(
+                                entry("key", List.of(Map.of("field01", "prop01"))),
+                                entry("keys", List.of(Map.of("field02", "prop02"))),
+                                entry("unique", List.of(Map.of("field03", "prop03"))),
+                                entry("mandatory", List.of(Map.of("field04", "prop04"))),
+                                entry("indexed", List.of(Map.of("field05", "prop05"))),
+                                entry("dates", List.of(Map.of("field06", "prop06"))),
+                                entry("doubles", List.of(Map.of("field07", "prop07"))),
+                                entry("floats", List.of(Map.of("field08", "prop08"))),
+                                entry("longs", List.of(Map.of("field09", "prop09"))),
+                                entry("integers", List.of(Map.of("field10", "prop10"))),
+                                entry("strings", List.of(Map.of("field11", "prop11"))),
+                                entry("points", List.of(Map.of("field12", "prop12"))),
+                                entry("booleans", List.of(Map.of("field13", "prop13"))),
+                                entry(
+                                    "bytearrays",
+                                    List.of(Map.of("field14", "prop14"), "prop15")))))));
+
+    var targets =
+        TargetMapper.parse(new JSONArray(List.of(edgeTarget)), new OptionsParams(), false);
+
+    assertThat(targets.getNodes())
+        .isEqualTo(
+            List.of(
+                new NodeTarget(
+                    false,
+                    "a-target-source",
+                    "a-source",
+                    null,
+                    WriteMode.CREATE,
+                    null,
+                    List.of("Placeholder1"),
+                    List.of(new PropertyMapping("prop1", "prop1", null)),
+                    new NodeSchema(
+                        null,
+                        List.of(
+                            new NodeKeyConstraint(
+                                "a-target-source-Placeholder1-node-single-key-for-prop1",
+                                "Placeholder1",
+                                List.of("prop1"),
+                                null)),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null)),
+                new NodeTarget(
+                    false,
+                    "a-target-target",
+                    "a-source",
+                    null,
+                    WriteMode.CREATE,
+                    null,
+                    List.of("Placeholder2"),
+                    List.of(new PropertyMapping("prop2", "prop2", null)),
+                    new NodeSchema(
+                        null,
+                        List.of(
+                            new NodeKeyConstraint(
+                                "a-target-target-Placeholder2-node-single-key-for-prop2",
+                                "Placeholder2",
+                                List.of("prop2"),
+                                null)),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null))));
+    assertThat(targets.getRelationships())
+        .isEqualTo(
+            List.of(
+                new RelationshipTarget(
+                    false,
+                    "a-target",
+                    "a-source",
+                    null,
+                    "PLACEHOLDER",
+                    WriteMode.MERGE,
+                    NodeMatchMode.MATCH,
+                    null,
+                    "a-target-source",
+                    "a-target-target",
+                    List.of(
+                        new PropertyMapping("field01", "prop01", null),
+                        new PropertyMapping("field02", "prop02", null),
+                        new PropertyMapping("field03", "prop03", null),
+                        new PropertyMapping("field04", "prop04", null),
+                        new PropertyMapping("field05", "prop05", null),
+                        new PropertyMapping("field06", "prop06", PropertyType.ZONED_DATETIME),
+                        new PropertyMapping("field07", "prop07", PropertyType.FLOAT),
+                        new PropertyMapping("field08", "prop08", PropertyType.FLOAT),
+                        new PropertyMapping("field09", "prop09", PropertyType.INTEGER),
+                        new PropertyMapping("field10", "prop10", PropertyType.INTEGER),
+                        new PropertyMapping("field11", "prop11", PropertyType.STRING),
+                        new PropertyMapping("field12", "prop12", PropertyType.POINT),
+                        new PropertyMapping("field13", "prop13", PropertyType.BOOLEAN),
+                        new PropertyMapping("field14", "prop14", PropertyType.BYTE_ARRAY),
+                        new PropertyMapping("prop15", "prop15", PropertyType.BYTE_ARRAY)),
+                    new RelationshipSchema(
+                        null,
+                        List.of(
+                            new RelationshipKeyConstraint(
+                                "a-target-PLACEHOLDER-relationship-single-key-for-prop01",
+                                List.of("prop01"),
+                                null),
+                            new RelationshipKeyConstraint(
+                                "a-target-PLACEHOLDER-relationship-key-for-prop02",
+                                List.of("prop02"),
+                                null)),
+                        List.of(
+                            new RelationshipUniqueConstraint(
+                                "a-target-PLACEHOLDER-relationship-unique-for-prop03",
+                                List.of("prop03"),
+                                null)),
+                        List.of(
+                            new RelationshipExistenceConstraint(
+                                "a-target-PLACEHOLDER-relationship-not-null-for-prop04", "prop04")),
+                        List.of(
+                            new RelationshipRangeIndex(
+                                "a-target-PLACEHOLDER-relationship-range-index-for-prop05",
+                                List.of("prop05"))),
+                        null,
+                        null,
+                        null,
+                        null))));
+    assertThat(targets.getCustomQueries()).isEmpty();
+  }
+
+  @Test
+  public void parses_edge_target_indexing_all_properties() {
+    var edgeTarget =
+        new JSONObject(
+            Map.of(
+                "edge",
+                Map.of(
+                    "active", false,
+                    "name", "a-target",
+                    "source", "a-source",
+                    "mode", "MERGE",
+                    "node_match_mode", "match",
+                    "mappings",
+                        Map.of(
+                            "type",
+                            "\"PLACEHOLDER\"",
+                            "source",
+                            Map.of(
+                                "label", "Placeholder1",
+                                "key", "prop1"),
+                            "target",
+                            Map.of(
+                                "label", "Placeholder2",
+                                "key", "prop2"),
+                            "properties",
+                            Map.<String, Object>ofEntries(
+                                entry("key", List.of(Map.of("field01", "prop01"))),
+                                entry("keys", List.of(Map.of("field02", "prop02"))),
+                                entry("unique", List.of(Map.of("field03", "prop03"))),
+                                entry("mandatory", List.of(Map.of("field04", "prop04"))),
+                                entry("indexed", List.of(Map.of("field05", "prop05"))),
+                                entry("dates", List.of(Map.of("field06", "prop06"))),
+                                entry("doubles", List.of(Map.of("field07", "prop07"))),
+                                entry("floats", List.of(Map.of("field08", "prop08"))),
+                                entry("longs", List.of(Map.of("field09", "prop09"))),
+                                entry("integers", List.of(Map.of("field10", "prop10"))),
+                                entry("strings", List.of(Map.of("field11", "prop11"))),
+                                entry("points", List.of(Map.of("field12", "prop12"))),
+                                entry("booleans", List.of(Map.of("field13", "prop13"))),
+                                entry(
+                                    "bytearrays",
+                                    List.of(Map.of("field14", "prop14"), "prop15")))))));
+
+    var targets = TargetMapper.parse(new JSONArray(List.of(edgeTarget)), new OptionsParams(), true);
+
+    var expectedSchema =
+        new RelationshipSchema(
+            null,
+            List.of(
+                new RelationshipKeyConstraint(
+                    "a-target-PLACEHOLDER-relationship-single-key-for-prop01",
+                    List.of("prop01"),
+                    null),
+                new RelationshipKeyConstraint(
+                    "a-target-PLACEHOLDER-relationship-key-for-prop02", List.of("prop02"), null)),
+            List.of(
+                new RelationshipUniqueConstraint(
+                    "a-target-PLACEHOLDER-relationship-unique-for-prop03",
+                    List.of("prop03"),
+                    null)),
+            List.of(
+                new RelationshipExistenceConstraint(
+                    "a-target-PLACEHOLDER-relationship-not-null-for-prop04", "prop04")),
+            List.of(
+                new RelationshipRangeIndex(
+                    "a-target-PLACEHOLDER-relationship-range-index-for-prop05", List.of("prop05")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop04", List.of("prop04")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop06", List.of("prop06")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop07", List.of("prop07")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop08", List.of("prop08")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop09", List.of("prop09")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop10", List.of("prop10")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop11", List.of("prop11")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop12", List.of("prop12")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop13", List.of("prop13")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop14", List.of("prop14")),
+                new RelationshipRangeIndex(
+                    "edge/default-index-for-PLACEHOLDER-prop15", List.of("prop15"))),
+            null,
+            null,
+            null,
+            null);
+
+    var relationshipTarget = targets.getRelationships().iterator().next();
+    assertThat(relationshipTarget.getSchema()).isEqualTo(expectedSchema);
   }
 
   @Test

@@ -342,6 +342,9 @@ class MappingMapper {
   }
 
   private static String unquote(String string) {
+    if (string == null) {
+      return null;
+    }
     String value = string.trim();
     if (value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {
       return value.substring(1, value.length() - 1);

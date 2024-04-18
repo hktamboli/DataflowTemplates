@@ -111,11 +111,13 @@ class TargetMapper {
       // note: indexAllProperties is ignored here since embedded node definitions
       // only declare key properties. Key properties are backed by key constraints, and these
       // constraints are always created with an index.
-      if (findNodeTarget(mappings.getJSONObject("source"), nodes).isEmpty()) {
+      if (mappings.has("source")
+          && findNodeTarget(mappings.getJSONObject("source"), nodes).isEmpty()) {
         var sourceNode = parseEdgeNode(edge, "source", nodeWriteMode);
         nodes.add(sourceNode);
       }
-      if (findNodeTarget(mappings.getJSONObject("target"), nodes).isEmpty()) {
+      if (mappings.has("target")
+          && findNodeTarget(mappings.getJSONObject("target"), nodes).isEmpty()) {
         var targetNode = parseEdgeNode(edge, "target", nodeWriteMode);
         nodes.add(targetNode);
       }
@@ -162,6 +164,14 @@ class TargetMapper {
     var relationshipType = parseType(mappings);
     var properties = parseMappings(mappings);
     var defaultIndexedProperties = getDefaultIndexedProperties(indexAllProperties, properties);
+    var sourceNodeReference =
+        !mappings.has("source")
+            ? null
+            : findNodeTarget(mappings.getJSONObject("source"), nodes).get();
+    var targetNodeReference =
+        !mappings.has("target")
+            ? null
+            : findNodeTarget(mappings.getJSONObject("target"), nodes).get();
     return new RelationshipTarget(
         getBooleanOrDefault(edge, "active", true),
         targetName,
@@ -171,8 +181,8 @@ class TargetMapper {
         writeMode,
         nodeMatchMode,
         parseSourceTransformations(edge),
-        findNodeTarget(mappings.getJSONObject("source"), nodes).get(),
-        findNodeTarget(mappings.getJSONObject("target"), nodes).get(),
+        sourceNodeReference,
+        targetNodeReference,
         properties,
         parseEdgeSchema(targetName, relationshipType, mappings, defaultIndexedProperties));
   }
@@ -195,7 +205,7 @@ class TargetMapper {
       return String.format("%s/%d", artifactType, index);
     }
     // make sure name is globally unique
-    return String.format("%s/%s", artifactType, name);
+    return name;
   }
 
   private static SourceTransformations parseSourceTransformations(JSONObject json) {
@@ -248,7 +258,7 @@ class TargetMapper {
   }
 
   private static WriteMode parseWriteMode(String mode) {
-    switch (mode) {
+    switch (mode.toLowerCase(Locale.ROOT)) {
       case "append":
         return WriteMode.CREATE;
       case "merge":

@@ -70,5 +70,6 @@ class MappingVisitor {
 
   private static void visitMappingString(String property, MappingListener listener) {
     listener.enterString(property);
+    listener.exitString();
   }
 }
