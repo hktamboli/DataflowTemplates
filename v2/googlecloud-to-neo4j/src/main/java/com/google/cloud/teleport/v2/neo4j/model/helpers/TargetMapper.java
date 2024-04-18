@@ -70,11 +70,13 @@ class TargetMapper {
         var node = target.getJSONObject("node");
         index.trackNode(normalizeName(i, node.getString("name"), ArtifactType.node));
         continue;
-      } else if (target.has("edge")) {
+      }
+      if (target.has("edge")) {
         var edge = target.getJSONObject("edge");
         index.trackEdge(normalizeName(i, edge.getString("name"), ArtifactType.edge));
         continue;
-      } else if (target.has("custom_query")) {
+      }
+      if (target.has("custom_query")) {
         var query = target.getJSONObject("custom_query");
         index.trackCustomQuery(
             normalizeName(i, query.getString("name"), ArtifactType.custom_query));

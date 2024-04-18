@@ -242,17 +242,17 @@ class MappingMapper {
       visit(properties.get("mandatory"), existenceConstraintListener);
       existenceConstraints = existenceConstraintListener.getSchema();
     }
-
     List<NodeRangeIndex> indexes = new ArrayList<>(0);
-    if (!defaultIndexedProperties.isEmpty()) {
-      indexes =
-          generateAutomaticIndexes(
-              labels, defaultIndexedProperties, keyConstraints, uniqueConstraints);
-    } else if (properties.has("indexed")) {
+    if (properties.has("indexed")) {
       CompoundNodeSchemaListener<NodeRangeIndex> indexListener =
           new NodeIndexListener(targetName, labels);
       visit(properties.get("indexed"), indexListener);
-      indexes = indexListener.getSchema();
+      indexes.addAll(indexListener.getSchema());
+    }
+    if (!defaultIndexedProperties.isEmpty()) {
+      indexes.addAll(
+          generateAutomaticIndexes(
+              labels, defaultIndexedProperties, keyConstraints, uniqueConstraints, indexes));
     }
     return new NodeSchema(
         null,
@@ -300,13 +300,15 @@ class MappingMapper {
       existenceConstraints = existenceConstraintListener.getSchema();
     }
     List<RelationshipRangeIndex> indexes = new ArrayList<>(0);
-    if (!defaultIndexedProperties.isEmpty()) {
-      indexes =
-          generateAutomaticIndexes(
-              type, defaultIndexedProperties, keyConstraints, uniqueConstraints);
-    } else if (properties.has("indexed")) {
+    if (properties.has("indexed")) {
       var indexListener = new RelationshipIndexListener(targetName, type);
       visit(properties.get("indexed"), indexListener);
+      indexes.addAll(indexListener.getSchema());
+    }
+    if (!defaultIndexedProperties.isEmpty()) {
+      indexes.addAll(
+          generateAutomaticIndexes(
+              type, defaultIndexedProperties, keyConstraints, uniqueConstraints, indexes));
     }
     return new RelationshipSchema(
         null,
@@ -367,7 +369,8 @@ class MappingMapper {
       List<String> labels,
       List<String> defaultIndexedProperties,
       List<NodeKeyConstraint> keyConstraints,
-      List<NodeUniqueConstraint> uniqueConstraints) {
+      List<NodeUniqueConstraint> uniqueConstraints,
+      List<NodeRangeIndex> indexes) {
     var properties = new ArrayList<>(defaultIndexedProperties);
     properties.removeAll(
         keyConstraints.stream()
@@ -377,6 +380,11 @@ class MappingMapper {
     properties.removeAll(
         uniqueConstraints.stream()
             .flatMap(constraint -> constraint.getProperties().stream())
+            .distinct()
+            .collect(Collectors.toList()));
+    properties.removeAll(
+        indexes.stream()
+            .flatMap(index -> index.getProperties().stream())
             .distinct()
             .collect(Collectors.toList()));
     return properties.stream()
@@ -388,7 +396,8 @@ class MappingMapper {
       String type,
       List<String> defaultIndexedProperties,
       List<RelationshipKeyConstraint> keyConstraints,
-      List<RelationshipUniqueConstraint> uniqueConstraints) {
+      List<RelationshipUniqueConstraint> uniqueConstraints,
+      List<RelationshipRangeIndex> indexes) {
     var properties = new ArrayList<>(defaultIndexedProperties);
     properties.removeAll(
         keyConstraints.stream()
@@ -398,6 +407,11 @@ class MappingMapper {
     properties.removeAll(
         uniqueConstraints.stream()
             .flatMap(constraint -> constraint.getProperties().stream())
+            .distinct()
+            .collect(Collectors.toList()));
+    properties.removeAll(
+        indexes.stream()
+            .flatMap(index -> index.getProperties().stream())
             .distinct()
             .collect(Collectors.toList()));
     return properties.stream()
