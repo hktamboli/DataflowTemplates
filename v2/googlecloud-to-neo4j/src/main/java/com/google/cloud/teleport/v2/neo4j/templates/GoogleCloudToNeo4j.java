@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
+import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.io.FileSystems;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.schemas.Schema;
@@ -440,7 +441,7 @@ public class GoogleCloudToNeo4j {
         importSpecification.getActions().stream()
             .filter(action -> action.getStage() != ActionStage.START)
             .collect(Collectors.toList());
-    runBeamActions(postLoadActions, defaultActionContext.getCoder());
+    runBeamActions(postLoadActions, defaultActionContext.getCoder(), processingQueue);
 
     // For a Dataflow Flex Template, do NOT waitUntilFinish().
     pipeline.run();
@@ -497,34 +498,38 @@ public class GoogleCloudToNeo4j {
     }
   }
 
-  private void runBeamActions(List<Action> actions, Coder<Row> coder) {
+  private void runBeamActions(List<Action> actions, Coder<Row> coder, BeamBlock blockingQueue) {
     for (Action action : actions) {
       LOG.info("Registering action: {}", action.getName());
-      // Get targeted execution context
       ActionContext context = new ActionContext();
       context.action = action;
       context.importSpecification = this.importSpecification;
       context.neo4jConnectionParams = this.neo4jConnection;
       context.templateVersion = this.templateVersion;
 
-      // We have chosen a DoFn pattern applied to a single Integer row so that @ProcessElement
-      // evaluates only once per invocation.
-      // For future actions (i.e. logger) that consume upstream data context, we would use a
-      // Transform pattern
-      // The challenge in this case of the Transform pattern is that @FinishBundle could execute
-      // many times.
-      // We return <Row> from each DoFn which get rolled up into PCollection<Row> at run-time.
-      // A side effect of this pattern is lots of housekeeping "**" elements in the rendered DAG.
-      // Housekeeping elements are named for flow but not function.  For instance ** Setup is
-      // synthetically creating a single tuple collection!
-      pipeline
-          .apply("** Setup " + action.getName(), Create.of(1))
-          // TODO          .apply(
-          //              "** Unblocking " + action.getName() + "(after " + action.getStage() + ")",
-          //              Wait.on(dependencies(action)))
-          //          .setCoder(VarIntCoder.of())
-          .apply("Running " + action.getName(), ParDo.of(ActionDoFnFactory.of(context)))
-          .setCoder(coder);
+      PCollection<Row> blockingReturn =
+          pipeline
+              .apply("** Setup " + action.getName(), Create.of(1))
+              .apply(
+                  "** Unblocking " + action.getName() + "(after " + action.getStage() + ")",
+                  Wait.on(
+                      blockingQueue.waitOnCollections(
+                          stageAsDependencies(action.getStage()), action.getName())))
+              .setCoder(VarIntCoder.of())
+              .apply("Running " + action.getName(), ParDo.of(ActionDoFnFactory.of(context)))
+              .setCoder(coder);
+
+      // TODO: remove since actions cannot be depended upon anymore?
+      blockingQueue.addToQueue(
+          ArtifactType.action,
+          action.getStage() == ActionStage.START,
+          action.getName(),
+          blockingReturn);
     }
+  }
+
+  // TODO: resolve action stage
+  private List<String> stageAsDependencies(ActionStage stage) {
+    return null;
   }
 }

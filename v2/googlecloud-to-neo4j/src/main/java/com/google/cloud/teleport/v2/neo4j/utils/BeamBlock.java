@@ -41,10 +41,13 @@ public class BeamBlock {
   private final Map<String, PCollection<Row>> executionContexts = new HashMap<>();
   private PCollection<Row> defaultCollection;
 
-  private BeamBlock() {}
-
   public BeamBlock(PCollection<Row> defaultCollection) {
     this.defaultCollection = defaultCollection;
+  }
+
+  public void addToQueue(
+      ArtifactType artifactType, boolean preload, String name, PCollection<Row> blockingReturn) {
+    addToQueue(artifactType, preload, name, blockingReturn, defaultCollection);
   }
 
   public void addToQueue(
@@ -78,14 +81,6 @@ public class BeamBlock {
     executionContexts.put(artifactType.name() + ":" + name, executionContext);
   }
 
-  public PCollection<Row> getContextCollection(ArtifactType artifactType, String name) {
-    if (executionContexts.containsKey(artifactType + ":" + name)) {
-      // execution context has been registered
-      return executionContexts.get(artifactType + ":" + name);
-    }
-    return defaultCollection;
-  }
-
   public PCollection<Row> waitOnCollections(List<String> dependencies, String queuingDescription) {
     List<PCollection<Row>> waitOnQueues = populateQueueForTargets(dependencies);
     if (waitOnQueues.isEmpty()) {
@@ -113,18 +108,6 @@ public class BeamBlock {
         if (executeAfterNamedQueue.containsKey(type + ":" + dependency)) {
           waitOnQueues.add(executeAfterNamedQueue.get(type + ":" + dependency));
         }
-      }
-    }
-    return waitOnQueues;
-  }
-
-  @SafeVarargs
-  private static List<PCollection<Row>> enqueueFirstNonEmpty(
-      List<PCollection<Row>> waitOnQueues, List<PCollection<Row>>... targets) {
-    for (List<PCollection<Row>> target : targets) {
-      waitOnQueues.addAll(target);
-      if (!waitOnQueues.isEmpty()) {
-        return waitOnQueues;
       }
     }
     return waitOnQueues;
