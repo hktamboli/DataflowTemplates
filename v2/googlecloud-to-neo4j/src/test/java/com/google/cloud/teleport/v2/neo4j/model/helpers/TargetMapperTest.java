@@ -817,6 +817,59 @@ public class TargetMapperTest {
   }
 
   @Test
+  public void combines_property_mapping_information() {
+    var nodeTarget =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name", "a-target",
+                    "mode", "append",
+                    "mappings",
+                        Map.of(
+                            "label",
+                            "\"Placeholder\"",
+                            "properties",
+                            Map.of(
+                                "booleans", List.of(Map.of("field1", "prop1")),
+                                "integers", List.of("prop2"),
+                                "key", Map.of("field1", "prop1"),
+                                "unique", "prop2")))));
+
+    Targets targets =
+        TargetMapper.parse(new JSONArray(List.of(nodeTarget)), new OptionsParams(), false);
+
+    var target = targets.getNodes().iterator().next();
+    assertThat(target.getProperties())
+        .isEqualTo(
+            List.of(
+                new PropertyMapping("field1", "prop1", PropertyType.BOOLEAN),
+                new PropertyMapping("prop2", "prop2", PropertyType.INTEGER)));
+    assertThat(target.getSchema())
+        .isEqualTo(
+            new NodeSchema(
+                null,
+                List.of(
+                    new NodeKeyConstraint(
+                        "a-target-Placeholder-node-single-key-for-prop1",
+                        "Placeholder",
+                        List.of("prop1"),
+                        null)),
+                List.of(
+                    new NodeUniqueConstraint(
+                        "a-target-Placeholder-node-unique-for-prop2",
+                        "Placeholder",
+                        List.of("prop2"),
+                        null)),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+  }
+
+  @Test
   public void sets_specified_match_mode_for_edge_targets() {
     JSONObject target = jsonTargetOfType("edge");
     JSONObject edge = target.getJSONObject("edge");
