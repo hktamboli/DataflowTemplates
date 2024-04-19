@@ -298,6 +298,80 @@ public class CypherGeneratorTest {
   }
 
   @Test
+  public void generates_schema_statements_for_node_target_against_Neo4j_44_CE() {
+    var target =
+        new NodeTarget(
+            true,
+            "a-target",
+            "a-source",
+            null,
+            WriteMode.MERGE,
+            null,
+            List.of("Placeholder"),
+            List.of(
+                new PropertyMapping("prop1", "prop1", PropertyType.BOOLEAN),
+                new PropertyMapping("prop2", "prop2", null),
+                new PropertyMapping("prop3", "prop3", null),
+                new PropertyMapping("prop4", "prop4", null),
+                new PropertyMapping("prop5", "prop5", null),
+                new PropertyMapping("prop6", "prop6", null),
+                new PropertyMapping("prop7", "prop7", null),
+                new PropertyMapping("prop8", "prop8", null),
+                new PropertyMapping("prop9", "prop9", null)),
+            new NodeSchema(
+                List.of(new NodeTypeConstraint("type-constraint-1", "Placeholder", "prop1")),
+                List.of(
+                    new NodeKeyConstraint(
+                        "key-constraint-1",
+                        "Placeholder",
+                        List.of("prop2"),
+                        Map.of("indexProvider", "range-1.0"))),
+                List.of(
+                    new NodeUniqueConstraint(
+                        "unique-constraint-1", "Placeholder", List.of("prop3"), null)),
+                List.of(
+                    new NodeExistenceConstraint("existence-constraint-1", "Placeholder", "prop4")),
+                List.of(new NodeRangeIndex("range-index-1", "Placeholder", List.of("prop5"))),
+                List.of(
+                    new NodeTextIndex(
+                        "text-index-1",
+                        "Placeholder",
+                        "prop6",
+                        Map.of("indexProvider", "text-2.0"))),
+                List.of(
+                    new NodePointIndex(
+                        "point-index-1",
+                        "Placeholder",
+                        "prop7",
+                        Map.of(
+                            "indexConfig",
+                            Map.of("spatial.cartesian.min", List.of(-100.0, 100.0))))),
+                List.of(
+                    new NodeFullTextIndex(
+                        "full-text-index-1",
+                        List.of("Placeholder"),
+                        List.of("prop8"),
+                        Map.of("indexConfig", Map.of("fulltext.analyzer", "english")))),
+                List.of(
+                    new NodeVectorIndex(
+                        "vector-index-1",
+                        "Placeholder",
+                        "prop9",
+                        Map.of("indexConfig", Map.of("vector.dimensions", 1536))))));
+
+    var statements =
+        CypherGenerator.getSchemaStatements(target, capabilitiesFor("4.4.0", "community"));
+
+    assertThat(statements)
+        .isEqualTo(
+            Set.of(
+                "CREATE INDEX `range-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON (n.`prop5`)",
+                "CREATE TEXT INDEX `text-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON (n.`prop6`) OPTIONS {`indexProvider`: 'text-2.0'}",
+                "CREATE POINT INDEX `point-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON (n.`prop7`) OPTIONS {`indexConfig`: {`spatial.cartesian.min`: [-100.0,100.0]}}",
+                "CREATE FULLTEXT INDEX `full-text-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON EACH [n.`prop8`] OPTIONS {`indexConfig`: {`fulltext.analyzer`: 'english'}}"));
+  }
+
+  @Test
   public void generates_schema_statements_for_relationship_target() {
     var target =
         new RelationshipTarget(
@@ -369,6 +443,75 @@ public class CypherGeneratorTest {
                 "CREATE POINT INDEX `point-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop7`) OPTIONS {`indexConfig`: {`spatial.cartesian.min`: [-100.0,100.0]}}",
                 "CREATE FULLTEXT INDEX `full-text-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON EACH [r.`prop8`] OPTIONS {`indexConfig`: {`fulltext.analyzer`: 'english'}}",
                 "CREATE VECTOR INDEX `vector-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop9`) OPTIONS {`indexConfig`: {`vector.dimensions`: 1536}}"));
+  }
+
+  @Test
+  public void generates_schema_statements_for_relationship_target_against_Neo4j_44_CE() {
+    var target =
+        new RelationshipTarget(
+            true,
+            "a-target",
+            "a-source",
+            null,
+            "PLACEHOLDER",
+            WriteMode.CREATE,
+            NodeMatchMode.MERGE,
+            null,
+            "a-start-node-target",
+            "an-end-node-target",
+            List.of(
+                new PropertyMapping("prop1", "prop1", PropertyType.LOCAL_DATETIME_ARRAY),
+                new PropertyMapping("prop2", "prop2", null),
+                new PropertyMapping("prop3", "prop3", null),
+                new PropertyMapping("prop4", "prop4", null),
+                new PropertyMapping("prop5", "prop5", null),
+                new PropertyMapping("prop6", "prop6", null),
+                new PropertyMapping("prop7", "prop7", null),
+                new PropertyMapping("prop8", "prop8", null),
+                new PropertyMapping("prop9", "prop9", null)),
+            new RelationshipSchema(
+                List.of(new RelationshipTypeConstraint("type-constraint-1", "prop1")),
+                List.of(
+                    new RelationshipKeyConstraint(
+                        "key-constraint-1",
+                        List.of("prop2"),
+                        Map.of("indexProvider", "range-1.0"))),
+                List.of(
+                    new RelationshipUniqueConstraint(
+                        "unique-constraint-1", List.of("prop3"), null)),
+                List.of(new RelationshipExistenceConstraint("existence-constraint-1", "prop4")),
+                List.of(new RelationshipRangeIndex("range-index-1", List.of("prop5"))),
+                List.of(
+                    new RelationshipTextIndex(
+                        "text-index-1", "prop6", Map.of("indexProvider", "text-2.0"))),
+                List.of(
+                    new RelationshipPointIndex(
+                        "point-index-1",
+                        "prop7",
+                        Map.of(
+                            "indexConfig",
+                            Map.of("spatial.cartesian.min", List.of(-100.0, 100.0))))),
+                List.of(
+                    new RelationshipFullTextIndex(
+                        "full-text-index-1",
+                        List.of("prop8"),
+                        Map.of("indexConfig", Map.of("fulltext.analyzer", "english")))),
+                List.of(
+                    new RelationshipVectorIndex(
+                        "vector-index-1",
+                        "prop9",
+                        Map.of("indexConfig", Map.of("vector.dimensions", 1536))))));
+
+    var statements =
+        CypherGenerator.getSchemaStatements(target, capabilitiesFor("4.4.0", "community"));
+
+    assertThat(statements)
+        .isEqualTo(
+            Set.of(
+                "CREATE INDEX `range-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop5`)",
+                "CREATE TEXT INDEX `text-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop6`) OPTIONS {`indexProvider`: 'text-2.0'}",
+                "CREATE POINT INDEX `point-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop7`) OPTIONS {`indexConfig`: {`spatial.cartesian.min`: [-100.0,100.0]}}",
+                "CREATE FULLTEXT INDEX `full-text-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON EACH [r.`prop8`] OPTIONS {`indexConfig`: {`fulltext.analyzer`: 'english'}}"));
   }
 
   @Test

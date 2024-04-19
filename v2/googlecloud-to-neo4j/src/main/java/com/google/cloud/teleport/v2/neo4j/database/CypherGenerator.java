@@ -293,63 +293,75 @@ public class CypherGenerator {
     Set<String> statements = new LinkedHashSet<>();
     String escapedType = escape(target.getType());
 
-    Map<String, PropertyType> types = indexPropertyTypes(target.getProperties());
-    for (var constraint : schema.getTypeConstraints()) {
-      String property = constraint.getProperty();
-      if (!types.containsKey(property)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Cannot create type constraint for property \"%s\" of target \"%s\", its mapping does not define a property type",
-                property, target.getName()));
+    if (capabilities.hasRelationshipTypeConstraints()) {
+      Map<String, PropertyType> types = indexPropertyTypes(target.getProperties());
+      for (var constraint : schema.getTypeConstraints()) {
+        String property = constraint.getProperty();
+        if (!types.containsKey(property)) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Cannot create type constraint for property \"%s\" of target \"%s\", its mapping does not define a property type",
+                  property, target.getName()));
+        }
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR ()-[r:"
+                + escapedType
+                + "]-() REQUIRE r."
+                + escape(property)
+                + " IS :: "
+                + CypherPatterns.propertyType(types.get(property)));
       }
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() REQUIRE r."
-              + escape(property)
-              + " IS :: "
-              + CypherPatterns.propertyType(types.get(property)));
     }
-    for (var constraint : schema.getKeyConstraints()) {
-      var properties =
-          CypherPatterns.qualifyAll("r", CypherPatterns.escapeAll(constraint.getProperties()));
-      var options = CypherPatterns.schemaOptions(constraint.getOptions());
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() REQUIRE ("
-              + String.join(", ", properties)
-              + ") IS RELATIONSHIP KEY"
-              + (options.isEmpty() ? "" : " " + options));
+
+    if (capabilities.hasRelationshipKeyConstraints()) {
+      for (var constraint : schema.getKeyConstraints()) {
+        var properties =
+            CypherPatterns.qualifyAll("r", CypherPatterns.escapeAll(constraint.getProperties()));
+        var options = CypherPatterns.schemaOptions(constraint.getOptions());
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR ()-[r:"
+                + escapedType
+                + "]-() REQUIRE ("
+                + String.join(", ", properties)
+                + ") IS RELATIONSHIP KEY"
+                + (options.isEmpty() ? "" : " " + options));
+      }
     }
-    for (var constraint : schema.getUniqueConstraints()) {
-      var properties =
-          CypherPatterns.qualifyAll("r", CypherPatterns.escapeAll(constraint.getProperties()));
-      var options = CypherPatterns.schemaOptions(constraint.getOptions());
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() REQUIRE ("
-              + String.join(", ", properties)
-              + ") IS UNIQUE"
-              + (options.isEmpty() ? "" : " " + options));
+
+    if (capabilities.hasRelationshipUniqueConstraints()) {
+      for (var constraint : schema.getUniqueConstraints()) {
+        var properties =
+            CypherPatterns.qualifyAll("r", CypherPatterns.escapeAll(constraint.getProperties()));
+        var options = CypherPatterns.schemaOptions(constraint.getOptions());
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR ()-[r:"
+                + escapedType
+                + "]-() REQUIRE ("
+                + String.join(", ", properties)
+                + ") IS UNIQUE"
+                + (options.isEmpty() ? "" : " " + options));
+      }
     }
-    for (var constraint : schema.getExistenceConstraints()) {
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() REQUIRE r."
-              + escape(constraint.getProperty())
-              + " IS NOT NULL");
+
+    if (capabilities.hasRelationshipExistenceConstraints()) {
+      for (var constraint : schema.getExistenceConstraints()) {
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR ()-[r:"
+                + escapedType
+                + "]-() REQUIRE r."
+                + escape(constraint.getProperty())
+                + " IS NOT NULL");
+      }
     }
+
     for (var index : schema.getRangeIndexes()) {
       var properties =
           CypherPatterns.qualifyAll("r", CypherPatterns.escapeAll(index.getProperties()));
@@ -362,6 +374,7 @@ public class CypherGenerator {
               + String.join(", ", properties)
               + ")");
     }
+
     for (var index : schema.getTextIndexes()) {
       String options = CypherPatterns.schemaOptions(index.getOptions());
       statements.add(
@@ -374,6 +387,7 @@ public class CypherGenerator {
               + ")"
               + (options.isEmpty() ? "" : " " + options));
     }
+
     for (var index : schema.getPointIndexes()) {
       String options = CypherPatterns.schemaOptions(index.getOptions());
       statements.add(
@@ -386,6 +400,7 @@ public class CypherGenerator {
               + ")"
               + (options.isEmpty() ? "" : " " + options));
     }
+
     for (var index : schema.getFullTextIndexes()) {
       String options = CypherPatterns.schemaOptions(index.getOptions());
       var properties =
@@ -400,17 +415,20 @@ public class CypherGenerator {
               + "]"
               + (options.isEmpty() ? "" : " " + options));
     }
-    for (var index : schema.getVectorIndexes()) {
-      String options = CypherPatterns.schemaOptions(index.getOptions());
-      statements.add(
-          "CREATE VECTOR INDEX "
-              + escape(index.getName())
-              + " IF NOT EXISTS FOR ()-[r:"
-              + escapedType
-              + "]-() ON (r."
-              + escape(index.getProperty())
-              + ")"
-              + (options.isEmpty() ? "" : " " + options));
+
+    if (capabilities.hasVectorIndexes()) {
+      for (var index : schema.getVectorIndexes()) {
+        String options = CypherPatterns.schemaOptions(index.getOptions());
+        statements.add(
+            "CREATE VECTOR INDEX "
+                + escape(index.getName())
+                + " IF NOT EXISTS FOR ()-[r:"
+                + escapedType
+                + "]-() ON (r."
+                + escape(index.getProperty())
+                + ")"
+                + (options.isEmpty() ? "" : " " + options));
+      }
     }
     return statements;
   }
