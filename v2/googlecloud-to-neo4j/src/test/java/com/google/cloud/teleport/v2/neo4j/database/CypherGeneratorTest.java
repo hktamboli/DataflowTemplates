@@ -20,17 +20,35 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.JobSpecMapper;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.neo4j.importer.v1.ImportSpecification;
+import org.neo4j.importer.v1.targets.NodeExistenceConstraint;
+import org.neo4j.importer.v1.targets.NodeFullTextIndex;
 import org.neo4j.importer.v1.targets.NodeKeyConstraint;
 import org.neo4j.importer.v1.targets.NodeMatchMode;
+import org.neo4j.importer.v1.targets.NodePointIndex;
+import org.neo4j.importer.v1.targets.NodeRangeIndex;
 import org.neo4j.importer.v1.targets.NodeSchema;
 import org.neo4j.importer.v1.targets.NodeTarget;
+import org.neo4j.importer.v1.targets.NodeTextIndex;
+import org.neo4j.importer.v1.targets.NodeTypeConstraint;
+import org.neo4j.importer.v1.targets.NodeUniqueConstraint;
+import org.neo4j.importer.v1.targets.NodeVectorIndex;
 import org.neo4j.importer.v1.targets.PropertyMapping;
+import org.neo4j.importer.v1.targets.PropertyType;
+import org.neo4j.importer.v1.targets.RelationshipExistenceConstraint;
+import org.neo4j.importer.v1.targets.RelationshipFullTextIndex;
 import org.neo4j.importer.v1.targets.RelationshipKeyConstraint;
+import org.neo4j.importer.v1.targets.RelationshipPointIndex;
+import org.neo4j.importer.v1.targets.RelationshipRangeIndex;
 import org.neo4j.importer.v1.targets.RelationshipSchema;
 import org.neo4j.importer.v1.targets.RelationshipTarget;
+import org.neo4j.importer.v1.targets.RelationshipTextIndex;
+import org.neo4j.importer.v1.targets.RelationshipTypeConstraint;
+import org.neo4j.importer.v1.targets.RelationshipUniqueConstraint;
+import org.neo4j.importer.v1.targets.RelationshipVectorIndex;
 import org.neo4j.importer.v1.targets.Targets;
 import org.neo4j.importer.v1.targets.WriteMode;
 
@@ -113,54 +131,6 @@ public class CypherGeneratorTest {
   }
 
   @Test
-  public void does_not_generate_constraints_for_edge_without_schema() {
-    var importSpecification =
-        JobSpecMapper.parse(
-            SPEC_PATH + "/single-target-relation-import-merge-all.json", new OptionsParams());
-    RelationshipTarget relationshipTarget =
-        importSpecification.getTargets().getRelationships().iterator().next();
-
-    Set<String> statements = CypherGenerator.getSchemaStatements(relationshipTarget);
-
-    assertThat(statements).isEmpty();
-  }
-
-  @Test
-  public void generates_relationship_key_statement() {
-    var relationship =
-        new RelationshipTarget(
-            true,
-            "self-linking-nodes",
-            "a-source",
-            null,
-            "SELF_LINKS_TO",
-            WriteMode.MERGE,
-            NodeMatchMode.MERGE,
-            null,
-            "node-target",
-            "node-target",
-            List.of(new PropertyMapping("source_field", "targetRelProperty", null)),
-            new RelationshipSchema(
-                null,
-                List.of(
-                    new RelationshipKeyConstraint("rel-key", List.of("targetRelProperty"), null)),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null));
-
-    Set<String> schemaStatements = CypherGenerator.getSchemaStatements(relationship);
-
-    assertThat(schemaStatements)
-        .isEqualTo(
-            Set.of(
-                "CREATE CONSTRAINT `rel-key` IF NOT EXISTS FOR ()-[r:`SELF_LINKS_TO`]-() REQUIRE (r.`targetRelProperty`) IS RELATIONSHIP KEY"));
-  }
-
-  @Test
   public void matches_nodes_of_relationship_to_merge() {
     var startNode =
         new NodeTarget(
@@ -230,7 +200,7 @@ public class CypherGeneratorTest {
                 null,
                 null,
                 null));
-    ImportSpecification importSpecification =
+    var importSpecification =
         new ImportSpecification(
             "1.0",
             null,
@@ -238,7 +208,7 @@ public class CypherGeneratorTest {
             new Targets(List.of(startNode, endNode), List.of(relationship), null),
             null);
 
-    String importStatement = CypherGenerator.getImportStatement(importSpecification, relationship);
+    var importStatement = CypherGenerator.getImportStatement(importSpecification, relationship);
 
     assertThat(importStatement)
         .isEqualTo(
@@ -246,5 +216,178 @@ public class CypherGeneratorTest {
                 + "MATCH (start:`StartNode` {`targetNodeProperty`: row.`source_node_field`}) "
                 + "MATCH (end:`EndNode` {`targetNodeProperty`: row.`source_node_field`}) "
                 + "MERGE (start)-[r:`LINKS_TO` {`targetRelProperty`: row.`source_field`}]->(end)");
+  }
+
+  @Test
+  public void generates_schema_statements_for_node_target() {
+    var target =
+        new NodeTarget(
+            true,
+            "a-target",
+            "a-source",
+            null,
+            WriteMode.MERGE,
+            null,
+            List.of("Placeholder"),
+            List.of(
+                new PropertyMapping("prop1", "prop1", PropertyType.BOOLEAN),
+                new PropertyMapping("prop2", "prop2", null),
+                new PropertyMapping("prop3", "prop3", null),
+                new PropertyMapping("prop4", "prop4", null),
+                new PropertyMapping("prop5", "prop5", null),
+                new PropertyMapping("prop6", "prop6", null),
+                new PropertyMapping("prop7", "prop7", null),
+                new PropertyMapping("prop8", "prop8", null),
+                new PropertyMapping("prop9", "prop9", null)),
+            new NodeSchema(
+                List.of(new NodeTypeConstraint("type-constraint-1", "Placeholder", "prop1")),
+                List.of(
+                    new NodeKeyConstraint(
+                        "key-constraint-1",
+                        "Placeholder",
+                        List.of("prop2"),
+                        Map.of("indexProvider", "range-1.0"))),
+                List.of(
+                    new NodeUniqueConstraint(
+                        "unique-constraint-1", "Placeholder", List.of("prop3"), null)),
+                List.of(
+                    new NodeExistenceConstraint("existence-constraint-1", "Placeholder", "prop4")),
+                List.of(new NodeRangeIndex("range-index-1", "Placeholder", List.of("prop5"))),
+                List.of(
+                    new NodeTextIndex(
+                        "text-index-1",
+                        "Placeholder",
+                        "prop6",
+                        Map.of("indexProvider", "text-2.0"))),
+                List.of(
+                    new NodePointIndex(
+                        "point-index-1",
+                        "Placeholder",
+                        "prop7",
+                        Map.of(
+                            "indexConfig",
+                            Map.of("spatial.cartesian.min", List.of(-100.0, 100.0))))),
+                List.of(
+                    new NodeFullTextIndex(
+                        "full-text-index-1",
+                        List.of("Placeholder"),
+                        List.of("prop8"),
+                        Map.of("indexConfig", Map.of("fulltext.analyzer", "english")))),
+                List.of(
+                    new NodeVectorIndex(
+                        "vector-index-1",
+                        "Placeholder",
+                        "prop9",
+                        Map.of("indexConfig", Map.of("vector.dimensions", 1536))))));
+
+    var statements = CypherGenerator.getSchemaStatements(target);
+
+    assertThat(statements)
+        .isEqualTo(
+            Set.of(
+                "CREATE CONSTRAINT `type-constraint-1` IF NOT EXISTS FOR (n:`Placeholder`) REQUIRE n.`prop1` IS :: BOOLEAN",
+                "CREATE CONSTRAINT `key-constraint-1` IF NOT EXISTS FOR (n:`Placeholder`) REQUIRE (n.`prop2`) IS NODE KEY OPTIONS {`indexProvider`: 'range-1.0'}",
+                "CREATE CONSTRAINT `unique-constraint-1` IF NOT EXISTS FOR (n:`Placeholder`) REQUIRE (n.`prop3`) IS UNIQUE",
+                "CREATE CONSTRAINT `existence-constraint-1` IF NOT EXISTS FOR (n:`Placeholder`) REQUIRE n.`prop4` IS NOT NULL",
+                "CREATE INDEX `range-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON (n.`prop5`)",
+                "CREATE TEXT INDEX `text-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON (n.`prop6`) OPTIONS {`indexProvider`: 'text-2.0'}",
+                "CREATE POINT INDEX `point-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON (n.`prop7`) OPTIONS {`indexConfig`: {`spatial.cartesian.min`: [-100.0,100.0]}}",
+                "CREATE FULLTEXT INDEX `full-text-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON EACH [n.`prop8`] OPTIONS {`indexConfig`: {`fulltext.analyzer`: 'english'}}",
+                "CREATE VECTOR INDEX `vector-index-1` IF NOT EXISTS FOR (n:`Placeholder`) ON (n.`prop9`) OPTIONS {`indexConfig`: {`vector.dimensions`: 1536}}"));
+  }
+
+  @Test
+  public void generates_schema_statements_for_relationship_target() {
+    var target =
+        new RelationshipTarget(
+            true,
+            "a-target",
+            "a-source",
+            null,
+            "PLACEHOLDER",
+            WriteMode.CREATE,
+            NodeMatchMode.MERGE,
+            null,
+            "a-start-node-target",
+            "an-end-node-target",
+            List.of(
+                new PropertyMapping("prop1", "prop1", PropertyType.LOCAL_DATETIME_ARRAY),
+                new PropertyMapping("prop2", "prop2", null),
+                new PropertyMapping("prop3", "prop3", null),
+                new PropertyMapping("prop4", "prop4", null),
+                new PropertyMapping("prop5", "prop5", null),
+                new PropertyMapping("prop6", "prop6", null),
+                new PropertyMapping("prop7", "prop7", null),
+                new PropertyMapping("prop8", "prop8", null),
+                new PropertyMapping("prop9", "prop9", null)),
+            new RelationshipSchema(
+                List.of(new RelationshipTypeConstraint("type-constraint-1", "prop1")),
+                List.of(
+                    new RelationshipKeyConstraint(
+                        "key-constraint-1",
+                        List.of("prop2"),
+                        Map.of("indexProvider", "range-1.0"))),
+                List.of(
+                    new RelationshipUniqueConstraint(
+                        "unique-constraint-1", List.of("prop3"), null)),
+                List.of(new RelationshipExistenceConstraint("existence-constraint-1", "prop4")),
+                List.of(new RelationshipRangeIndex("range-index-1", List.of("prop5"))),
+                List.of(
+                    new RelationshipTextIndex(
+                        "text-index-1", "prop6", Map.of("indexProvider", "text-2.0"))),
+                List.of(
+                    new RelationshipPointIndex(
+                        "point-index-1",
+                        "prop7",
+                        Map.of(
+                            "indexConfig",
+                            Map.of("spatial.cartesian.min", List.of(-100.0, 100.0))))),
+                List.of(
+                    new RelationshipFullTextIndex(
+                        "full-text-index-1",
+                        List.of("prop8"),
+                        Map.of("indexConfig", Map.of("fulltext.analyzer", "english")))),
+                List.of(
+                    new RelationshipVectorIndex(
+                        "vector-index-1",
+                        "prop9",
+                        Map.of("indexConfig", Map.of("vector.dimensions", 1536))))));
+
+    var statements = CypherGenerator.getSchemaStatements(target);
+
+    assertThat(statements)
+        .isEqualTo(
+            Set.of(
+                "CREATE CONSTRAINT `type-constraint-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() REQUIRE r.`prop1` IS :: LIST<LOCAL DATETIME NOT NULL>",
+                "CREATE CONSTRAINT `key-constraint-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() REQUIRE (r.`prop2`) IS RELATIONSHIP KEY OPTIONS {`indexProvider`: 'range-1.0'}",
+                "CREATE CONSTRAINT `unique-constraint-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() REQUIRE (r.`prop3`) IS UNIQUE",
+                "CREATE CONSTRAINT `existence-constraint-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() REQUIRE r.`prop4` IS NOT NULL",
+                "CREATE INDEX `range-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop5`)",
+                "CREATE TEXT INDEX `text-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop6`) OPTIONS {`indexProvider`: 'text-2.0'}",
+                "CREATE POINT INDEX `point-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop7`) OPTIONS {`indexConfig`: {`spatial.cartesian.min`: [-100.0,100.0]}}",
+                "CREATE FULLTEXT INDEX `full-text-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON EACH [r.`prop8`] OPTIONS {`indexConfig`: {`fulltext.analyzer`: 'english'}}",
+                "CREATE VECTOR INDEX `vector-index-1` IF NOT EXISTS FOR ()-[r:`PLACEHOLDER`]-() ON (r.`prop9`) OPTIONS {`indexConfig`: {`vector.dimensions`: 1536}}"));
+  }
+
+  @Test
+  public void does_not_generate_schema_statements_for_relationship_target_without_schema() {
+    var target =
+        new RelationshipTarget(
+            true,
+            "a-target",
+            "a-source",
+            null,
+            "TYPE",
+            WriteMode.CREATE,
+            NodeMatchMode.MERGE,
+            null,
+            "a-start-node-target",
+            "an-end-node-target",
+            null,
+            null);
+
+    var statements = CypherGenerator.getSchemaStatements(target);
+
+    assertThat(statements).isEmpty();
   }
 }

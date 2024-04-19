@@ -40,7 +40,7 @@ public class CypherGenerator {
   private static final String ROW_VARIABLE_NAME = "row";
 
   /**
-   * getCypherQuery generates the batch import statement of the specified node or relationship
+   * getImportStatement generates the batch import statement of the specified node or relationship
    * target.
    *
    * @param importSpecification the whole import specification
@@ -61,7 +61,8 @@ public class CypherGenerator {
   }
 
   /**
-   * Generates the Cypher schema statements for the given target.
+   * getSchemaStatements generates the Cypher schema statements for the specified node or
+   * relationship target.
    *
    * @return a collection of Cypher schema statements
    */
@@ -155,7 +156,7 @@ public class CypherGenerator {
               + escape(constraint.getName())
               + " IF NOT EXISTS FOR (n:"
               + escape(constraint.getLabel())
-              + ") REQUIRE "
+              + ") REQUIRE n."
               + escape(property)
               + " IS :: "
               + CypherPatterns.propertyType(types.get(property)));
@@ -241,7 +242,7 @@ public class CypherGenerator {
       statements.add(
           "CREATE FULLTEXT INDEX "
               + escape(index.getName())
-              + " IF NOT EXISTS FOR (n:"
+              + " IF NOT EXISTS FOR (n"
               + CypherPatterns.labels(index.getLabels(), "|")
               + ") ON EACH ["
               + String.join(", ", properties)
@@ -285,7 +286,7 @@ public class CypherGenerator {
               + escape(constraint.getName())
               + " IF NOT EXISTS FOR ()-[r:"
               + escapedType
-              + "]-() REQUIRE "
+              + "]-() REQUIRE r."
               + escape(property)
               + " IS :: "
               + CypherPatterns.propertyType(types.get(property)));
@@ -490,7 +491,7 @@ class CypherPatterns {
       case LOCAL_DATETIME:
         return "LOCAL DATETIME";
       case LOCAL_DATETIME_ARRAY:
-        return "LIST<DATETIME NOT NULL>";
+        return "LIST<LOCAL DATETIME NOT NULL>";
       case LOCAL_TIME:
         return "LOCAL TIME";
       case LOCAL_TIME_ARRAY:
@@ -506,11 +507,11 @@ class CypherPatterns {
       case ZONED_DATETIME:
         return "ZONED DATETIME";
       case ZONED_DATETIME_ARRAY:
-        return "LIST<ZONED DATETIME>";
+        return "LIST<ZONED DATETIME NOT NULL>";
       case ZONED_TIME:
         return "ZONED TIME";
       case ZONED_TIME_ARRAY:
-        return "LIST<ZONED TIME>";
+        return "LIST<ZONED TIME NOT NULL>";
       default:
         throw new IllegalArgumentException(
             String.format("Unsupported property type: %s", propertyType));
