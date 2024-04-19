@@ -31,7 +31,6 @@ import com.google.cloud.teleport.v2.utils.FirestoreConverters.FirestoreReadOptio
 import com.google.cloud.teleport.v2.utils.FirestoreConverters.ReadJsonEntities;
 import com.google.common.base.Strings;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.coders.RowCoder;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
@@ -40,8 +39,8 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation;
 import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
 import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SimpleFunction;
-import org.apache.beam.sdk.values.Row;
 
 /**
  * Dataflow template which copies Firestore Entities to a BigQuery table.
@@ -69,7 +68,7 @@ import org.apache.beam.sdk.values.Row;
       contactInformation = "https://cloud.google.com/support",
       hidden = true),
   @Template(
-      name = "Firestore_to_BigQuery_Flex",
+      name = "Firestore_to_BigQuery_Xlang",
       category = TemplateCategory.BATCH,
       displayName = "Firestore (Datastore mode) to BigQuery with Python UDF",
       type = Template.TemplateType.XLANG,
@@ -83,7 +82,7 @@ import org.apache.beam.sdk.values.Row;
         "javascriptTextTransformFunctionName",
         "javascriptTextTransformReloadIntervalMinutes"
       },
-      flexContainerName = "firestore-to-bigquery",
+      flexContainerName = "firestore-to-bigquery-xlang",
       contactInformation = "https://cloud.google.com/support",
       hidden = true)
 })
@@ -166,7 +165,7 @@ public class FirestoreToBigQuery {
 
     boolean useJavascriptUdf = !Strings.isNullOrEmpty(options.getJavascriptTextTransformGcsPath());
     boolean usePythonUdf = !Strings.isNullOrEmpty(options.getPythonExternalTextTransformGcsPath());
-    if (useJavascriptUdf == usePythonUdf) {
+    if (useJavascriptUdf && usePythonUdf) {
       throw new IllegalArgumentException(
           "Either javascript or Python gcs path must be provided, but not both.");
     }
@@ -182,25 +181,15 @@ public class FirestoreToBigQuery {
               "MapToRecord",
               PythonExternalTextTransformer.FailsafeRowPythonExternalUdf.stringMappingFunction())
           .setRowSchema(PythonExternalTextTransformer.FailsafeRowPythonExternalUdf.ROW_SCHEMA)
-          .setCoder(
-              RowCoder.of(PythonExternalTextTransformer.FailsafeRowPythonExternalUdf.ROW_SCHEMA))
           .apply(
               "InvokeUDF",
               PythonExternalTextTransformer.FailsafePythonExternalUdf.newBuilder()
                   .setFileSystemPath(options.getPythonExternalTextTransformGcsPath())
                   .setFunctionName(options.getPythonExternalTextTransformFunctionName())
                   .build())
-          .setRowSchema(PythonExternalTextTransformer.FailsafeRowPythonExternalUdf.FAILSAFE_SCHEMA)
           .apply(
-              MapElements.via(
-                  new SimpleFunction<Row, TableRow>() {
-                    @Override
-                    public TableRow apply(Row row) {
-                      Row transformedRow = row.getValue("transformed");
-                      return BigQueryConverters.convertJsonToTableRow(
-                          transformedRow.getValue("message"));
-                    }
-                  }))
+              "MapToTableRowElements",
+              ParDo.of(new PythonExternalTextTransformer.RowToTableRowElementFn()))
           .apply("WriteBigQuery", writeToBigQuery(options));
     } else {
       pipeline

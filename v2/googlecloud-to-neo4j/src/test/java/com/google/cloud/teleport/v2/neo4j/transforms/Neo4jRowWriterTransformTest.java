@@ -19,7 +19,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.google.cloud.teleport.v2.neo4j.database.Neo4jCapabilities;
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
 import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetSequence;
 import com.google.cloud.teleport.v2.neo4j.utils.BeamUtils;
@@ -42,7 +44,7 @@ public class Neo4jRowWriterTransformTest {
 
   @Test
   public void sends_transaction_metadata_for_schema_init() {
-    var connection = mock(Neo4jConnection.class);
+    var connection = createNeo4j5EnterpriseConnection();
     var header = List.of("placeholder-field1", "placeholder-field2");
     var properties = List.of(new PropertyMapping("placeholder-field1", "prop1", null));
     var schema =
@@ -92,5 +94,11 @@ public class Neo4jRowWriterTransformTest {
             .withMetadata(Map.of("app", "dataflow", "metadata", expectedTxMetadata))
             .build();
     verify(connection).runAutocommit(any(), eq(expectedTransactionConfig));
+  }
+
+  private static Neo4jConnection createNeo4j5EnterpriseConnection() {
+    Neo4jConnection connection = mock(Neo4jConnection.class);
+    when(connection.capabilities()).thenReturn(new Neo4jCapabilities("5.1.0", "enterprise"));
+    return connection;
   }
 }

@@ -280,7 +280,8 @@ public class CypherGeneratorTest {
                         "prop9",
                         Map.of("indexConfig", Map.of("vector.dimensions", 1536))))));
 
-    var statements = CypherGenerator.getSchemaStatements(target);
+    var statements =
+        CypherGenerator.getSchemaStatements(target, capabilitiesFor("5.18.0", "enterprise"));
 
     assertThat(statements)
         .isEqualTo(
@@ -353,7 +354,8 @@ public class CypherGeneratorTest {
                         "prop9",
                         Map.of("indexConfig", Map.of("vector.dimensions", 1536))))));
 
-    var statements = CypherGenerator.getSchemaStatements(target);
+    var statements =
+        CypherGenerator.getSchemaStatements(target, capabilitiesFor("5.18.0", "enterprise"));
 
     assertThat(statements)
         .isEqualTo(
@@ -386,8 +388,13 @@ public class CypherGeneratorTest {
             null,
             null);
 
-    var statements = CypherGenerator.getSchemaStatements(target);
+    var statements =
+        CypherGenerator.getSchemaStatements(target, capabilitiesFor("5.18.0", "enterprise"));
 
     assertThat(statements).isEmpty();
+  }
+
+  private static Neo4jCapabilities capabilitiesFor(String neo4jVersion, String neo4jEdition) {
+    return new Neo4jCapabilities(neo4jVersion, neo4jEdition);
   }
 }

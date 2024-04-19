@@ -182,7 +182,7 @@ public class DMLGenerator {
 
       deleteValues += " " + colName + " = " + colValue;
       if (index + 1 < pkcolumnNameValues.size()) {
-        deleteValues += ",";
+        deleteValues += " AND ";
       }
       index++;
     }
@@ -415,7 +415,7 @@ public class DMLGenerator {
   private static String escapeString(String input) {
     String cleanedNullBytes = StringUtils.replace(input, "\u0000", "");
     cleanedNullBytes = StringUtils.replace(cleanedNullBytes, "'", "''");
-
+    cleanedNullBytes = StringUtils.replace(cleanedNullBytes, "\\", "\\\\");
     return cleanedNullBytes;
   }
 

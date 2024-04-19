@@ -43,9 +43,11 @@
     <maven-shade-plugin.version>3.0.0</maven-shade-plugin.version>
     <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
     <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
+    <jacoco.version>0.8.8</jacoco.version>
 
     <!-- Beam and linked versions -->
-    <beam.version>2.54.0</beam.version>
+    <!-- Also update beam version in requirements.txt throughout the repo -->
+    <beam.version>2.55.1</beam.version>
     <jackson.version>2.14.1</jackson.version>
 
     <!-- Common dependency versions -->
@@ -75,6 +77,9 @@
     <spotless-maven-plugin.version>2.40.0</spotless-maven-plugin.version>
     <surefire.version>2.21.0</surefire.version>
     <truth.version>1.1.5</truth.version>
+
+    <!-- TODO(https://github.com/apache/beam/issues/30700): Remove once Beam gets the latest version of gax. -->
+    <gax.version>2.45.0</gax.version>
 
     <!-- Drop pinned version once maven-dependency-plugin gets past plexus-archiver 4.8.0 -->
     <plexus-archiver.version>4.8.0</plexus-archiver.version>
@@ -180,6 +185,18 @@
         <groupId>org.xerial.snappy</groupId>
         <artifactId>snappy-java</artifactId>
         <version>${snappy.version}</version>
+      </dependency>
+
+      <!-- TODO(https://github.com/apache/beam/issues/30700): Remove once Beam gets the latest version of gax. -->
+      <dependency>
+        <groupId>com.google.api</groupId>
+        <artifactId>gax-grpc</artifactId>
+        <version>${gax.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.api</groupId>
+        <artifactId>gax</artifactId>
+        <version>${gax.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -329,6 +346,39 @@
             <phase>test-compile</phase>
             <goals>
               <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <configuration>
+          <excludes>
+            <!-- Excluding auto-generated classes. -->
+            <exclude>**/*AutoValue_*</exclude>
+          </excludes>
+        </configuration>
+        <executions>
+          <execution>
+            <id>default-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-report</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report-aggregate</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report-aggregate</goal>
             </goals>
           </execution>
         </executions>
@@ -570,7 +620,6 @@
       <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </snapshotRepository>
   </distributionManagement>
-
   <modules>
     <module>metadata</module>
     <module>plugins</module>

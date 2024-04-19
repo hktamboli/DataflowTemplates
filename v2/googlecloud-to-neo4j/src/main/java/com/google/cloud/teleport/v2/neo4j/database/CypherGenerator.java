@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toMap;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -66,15 +67,16 @@ public class CypherGenerator {
    *
    * @return a collection of Cypher schema statements
    */
-  public static Set<String> getSchemaStatements(EntityTarget target) {
+  public static Set<String> getSchemaStatements(
+      EntityTarget target, Neo4jCapabilities capabilities) {
     var type = target.getTargetType();
     switch (type) {
       case NODE:
-        return getNodeSchemaStatements((NodeTarget) target);
+        return getNodeSchemaStatements((NodeTarget) target, capabilities);
       case RELATIONSHIP:
-        return getRelationshipSchemaStatements((RelationshipTarget) target);
+        return getRelationshipSchemaStatements((RelationshipTarget) target, capabilities);
       default:
-        throw new IllegalArgumentException(String.format("unexpected target type: %s", type));
+        return Collections.emptySet();
     }
   }
 
@@ -138,67 +140,80 @@ public class CypherGenerator {
         + (relationshipNonKeysClause.isEmpty() ? "" : " " + relationshipNonKeysClause);
   }
 
-  private static Set<String> getNodeSchemaStatements(NodeTarget target) {
+  private static Set<String> getNodeSchemaStatements(
+      NodeTarget target, Neo4jCapabilities capabilities) {
     NodeSchema schema = target.getSchema();
     Set<String> statements = new LinkedHashSet<>();
 
-    Map<String, PropertyType> types = indexPropertyTypes(target.getProperties());
-    for (var constraint : schema.getTypeConstraints()) {
-      String property = constraint.getProperty();
-      if (!types.containsKey(property)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Cannot create type constraint for property \"%s\" of target \"%s\", its mapping does not define a property type",
-                property, target.getName()));
+    if (capabilities.hasNodeTypeConstraints()) {
+      Map<String, PropertyType> types = indexPropertyTypes(target.getProperties());
+      for (var constraint : schema.getTypeConstraints()) {
+        String property = constraint.getProperty();
+        if (!types.containsKey(property)) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Cannot create type constraint for property \"%s\" of target \"%s\", its mapping does not define a property type",
+                  property, target.getName()));
+        }
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR (n:"
+                + escape(constraint.getLabel())
+                + ") REQUIRE n."
+                + escape(property)
+                + " IS :: "
+                + CypherPatterns.propertyType(types.get(property)));
       }
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR (n:"
-              + escape(constraint.getLabel())
-              + ") REQUIRE n."
-              + escape(property)
-              + " IS :: "
-              + CypherPatterns.propertyType(types.get(property)));
     }
-    for (var constraint : schema.getKeyConstraints()) {
-      var properties =
-          CypherPatterns.qualifyAll("n", CypherPatterns.escapeAll(constraint.getProperties()));
-      var options = CypherPatterns.schemaOptions(constraint.getOptions());
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR (n:"
-              + escape(constraint.getLabel())
-              + ") REQUIRE ("
-              + String.join(", ", properties)
-              + ") IS NODE KEY"
-              + (options.isEmpty() ? "" : " " + options));
+
+    if (capabilities.hasNodeKeyConstraints()) {
+      for (var constraint : schema.getKeyConstraints()) {
+        var properties =
+            CypherPatterns.qualifyAll("n", CypherPatterns.escapeAll(constraint.getProperties()));
+        var options = CypherPatterns.schemaOptions(constraint.getOptions());
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR (n:"
+                + escape(constraint.getLabel())
+                + ") REQUIRE ("
+                + String.join(", ", properties)
+                + ") IS NODE KEY"
+                + (options.isEmpty() ? "" : " " + options));
+      }
     }
-    for (var constraint : schema.getUniqueConstraints()) {
-      var properties =
-          CypherPatterns.qualifyAll("n", CypherPatterns.escapeAll(constraint.getProperties()));
-      var options = CypherPatterns.schemaOptions(constraint.getOptions());
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR (n:"
-              + escape(constraint.getLabel())
-              + ") REQUIRE ("
-              + String.join(", ", properties)
-              + ") IS UNIQUE"
-              + (options.isEmpty() ? "" : " " + options));
+
+    if (capabilities.hasNodeUniqueConstraints()) {
+      for (var constraint : schema.getUniqueConstraints()) {
+        var properties =
+            CypherPatterns.qualifyAll("n", CypherPatterns.escapeAll(constraint.getProperties()));
+        var options = CypherPatterns.schemaOptions(constraint.getOptions());
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR (n:"
+                + escape(constraint.getLabel())
+                + ") REQUIRE ("
+                + String.join(", ", properties)
+                + ") IS UNIQUE"
+                + (options.isEmpty() ? "" : " " + options));
+      }
     }
-    for (var constraint : schema.getExistenceConstraints()) {
-      statements.add(
-          "CREATE CONSTRAINT "
-              + escape(constraint.getName())
-              + " IF NOT EXISTS FOR (n:"
-              + escape(constraint.getLabel())
-              + ") REQUIRE n."
-              + escape(constraint.getProperty())
-              + " IS NOT NULL");
+
+    if (capabilities.hasNodeExistenceConstraints()) {
+      for (var constraint : schema.getExistenceConstraints()) {
+        statements.add(
+            "CREATE CONSTRAINT "
+                + escape(constraint.getName())
+                + " IF NOT EXISTS FOR (n:"
+                + escape(constraint.getLabel())
+                + ") REQUIRE n."
+                + escape(constraint.getProperty())
+                + " IS NOT NULL");
+      }
     }
+
     for (var index : schema.getRangeIndexes()) {
       var properties =
           CypherPatterns.qualifyAll("n", CypherPatterns.escapeAll(index.getProperties()));
@@ -223,6 +238,7 @@ public class CypherGenerator {
               + ")"
               + (options.isEmpty() ? "" : " " + options));
     }
+
     for (var index : schema.getPointIndexes()) {
       String options = CypherPatterns.schemaOptions(index.getOptions());
       statements.add(
@@ -235,6 +251,7 @@ public class CypherGenerator {
               + ")"
               + (options.isEmpty() ? "" : " " + options));
     }
+
     for (var index : schema.getFullTextIndexes()) {
       var properties =
           CypherPatterns.qualifyAll("n", CypherPatterns.escapeAll(index.getProperties()));
@@ -249,22 +266,26 @@ public class CypherGenerator {
               + "]"
               + (options.isEmpty() ? "" : " " + options));
     }
-    for (var index : schema.getVectorIndexes()) {
-      var options = CypherPatterns.schemaOptions(index.getOptions());
-      statements.add(
-          "CREATE VECTOR INDEX "
-              + escape(index.getName())
-              + " IF NOT EXISTS FOR (n:"
-              + escape(index.getLabel())
-              + ") ON (n."
-              + escape(index.getProperty())
-              + ")"
-              + (options.isEmpty() ? "" : " " + options));
+
+    if (capabilities.hasVectorIndexes()) {
+      for (var index : schema.getVectorIndexes()) {
+        var options = CypherPatterns.schemaOptions(index.getOptions());
+        statements.add(
+            "CREATE VECTOR INDEX "
+                + escape(index.getName())
+                + " IF NOT EXISTS FOR (n:"
+                + escape(index.getLabel())
+                + ") ON (n."
+                + escape(index.getProperty())
+                + ")"
+                + (options.isEmpty() ? "" : " " + options));
+      }
     }
     return statements;
   }
 
-  private static Set<String> getRelationshipSchemaStatements(RelationshipTarget target) {
+  private static Set<String> getRelationshipSchemaStatements(
+      RelationshipTarget target, Neo4jCapabilities capabilities) {
     RelationshipSchema schema = target.getSchema();
     if (schema == null) {
       return Set.of();
