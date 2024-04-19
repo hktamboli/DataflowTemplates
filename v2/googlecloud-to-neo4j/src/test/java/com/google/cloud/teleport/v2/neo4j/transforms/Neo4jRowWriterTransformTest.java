@@ -15,41 +15,82 @@
  */
 package com.google.cloud.teleport.v2.neo4j.transforms;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
+import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
+import com.google.cloud.teleport.v2.neo4j.model.helpers.TargetSequence;
+import com.google.cloud.teleport.v2.neo4j.utils.BeamUtils;
+import java.util.List;
+import java.util.Map;
+import org.apache.beam.sdk.testing.TestPipeline;
+import org.apache.beam.sdk.transforms.Create;
+import org.junit.Test;
+import org.neo4j.driver.TransactionConfig;
+import org.neo4j.importer.v1.ImportSpecification;
+import org.neo4j.importer.v1.sources.InlineTextSource;
+import org.neo4j.importer.v1.targets.NodeKeyConstraint;
+import org.neo4j.importer.v1.targets.NodeSchema;
+import org.neo4j.importer.v1.targets.NodeTarget;
+import org.neo4j.importer.v1.targets.PropertyMapping;
+import org.neo4j.importer.v1.targets.Targets;
+import org.neo4j.importer.v1.targets.WriteMode;
+
 public class Neo4jRowWriterTransformTest {
 
-  //  @Test
-  //  public void sendsTransactionMetadataForSchemaInit() {
-  //    Neo4jConnection connection = mock(Neo4jConnection.class);
-  //    JobSpec jobSpec = new JobSpec();
-  //    Source source = new Source();
-  //    source.setSourceType(SourceType.text);
-  //    source.setInline(List.of(List.of("placeholder", "for"), List.of("inline", "data")));
-  //    jobSpec.getSources().put("a-source", source);
-  //    Target target = new Target();
-  //    target.setName("placeholder-target");
-  //    target.setType(TargetType.node);
-  //    target.setSource("a-source");
-  //    target.setSequence(42);
-  //    target.setMappings(List.of(aLabelMapping(), aKeyMapping()));
-  //    Neo4jRowWriterTransform transform =
-  //        new Neo4jRowWriterTransform(jobSpec, target, () -> connection);
-  //
-  //    TestPipeline.create()
-  //        .apply(
-  //            Create.empty(
-  //                BeamUtils.textToBeamSchema(
-  //                    new String[] {"placeholder-field1", "placeholder-field2"})))
-  //        .apply(transform);
-  //
-  //    Map<String, String> expectedTxMetadata =
-  //        Map.of(
-  //            "sink", "neo4j", "source", "Text/Inline", "target-type", "node", "step",
-  // "init-schema");
-  //    TransactionConfig expectedTransactionConfig =
-  //        TransactionConfig.builder()
-  //            .withMetadata(Map.of("app", "dataflow", "metadata", expectedTxMetadata))
-  //            .build();
-  //    verify(connection).executeCypher(any(), eq(expectedTransactionConfig));
-  //  }
+  @Test
+  public void sends_transaction_metadata_for_schema_init() {
+    var connection = mock(Neo4jConnection.class);
+    var header = List.of("placeholder-field1", "placeholder-field2");
+    var properties = List.of(new PropertyMapping("placeholder-field1", "prop1", null));
+    var schema =
+        new NodeSchema(
+            null,
+            List.of(
+                new NodeKeyConstraint("a-key-constraint", "Placeholder", List.of("prop1"), null)),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    var target =
+        new NodeTarget(
+            true,
+            "a-target",
+            "a-source",
+            null,
+            WriteMode.CREATE,
+            null,
+            List.of("Placeholder"),
+            properties,
+            schema);
+    var spec =
+        new ImportSpecification(
+            "test-version",
+            null,
+            List.of(
+                new InlineTextSource(
+                    "a-source",
+                    List.of(List.of("placeholder", "for"), List.of("inline", "data")),
+                    header)),
+            new Targets(List.of(target), null, null),
+            null);
+    var transform =
+        new Neo4jRowWriterTransform(spec, new TargetSequence(), target, () -> connection);
 
+    TestPipeline.create().apply(Create.empty(BeamUtils.textToBeamSchema(header))).apply(transform);
+
+    var expectedTxMetadata =
+        Map.of(
+            "sink", "neo4j", "source", "Text/Inline", "target-type", "node", "step", "init-schema");
+    var expectedTransactionConfig =
+        TransactionConfig.builder()
+            .withMetadata(Map.of("app", "dataflow", "metadata", expectedTxMetadata))
+            .build();
+    verify(connection).runAutocommit(any(), eq(expectedTransactionConfig));
+  }
 }
