@@ -65,8 +65,7 @@ public class JobSpecMapper {
     var configuration = parseConfig(spec);
     var targets = extractTargets(spec);
     var actions = extractActions(spec);
-    var index =
-        indexLegacyJobSpec(targets, actions); // TODO: use for target/action dependency resolution
+    var index = indexLegacyJobSpec(targets, actions);
     var specification =
         new ImportSpecification(
             "0.legacy",
@@ -75,6 +74,7 @@ public class JobSpecMapper {
             TargetMapper.parse(
                 targets,
                 options,
+                index,
                 (boolean) configuration.getOrDefault("index_all_properties", false)),
             ActionMapper.parse(actions, options));
     try {
@@ -85,8 +85,8 @@ public class JobSpecMapper {
     return specification;
   }
 
-  private static JobSpecNameIndex indexLegacyJobSpec(JSONArray targets, JSONArray actions) {
-    var index = new JobSpecNameIndex();
+  private static JobSpecIndex indexLegacyJobSpec(JSONArray targets, JSONArray actions) {
+    var index = new JobSpecIndex();
     TargetMapper.index(targets, index);
     ActionMapper.index(actions, index);
     return index;

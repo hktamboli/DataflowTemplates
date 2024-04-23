@@ -40,10 +40,13 @@ import org.neo4j.importer.v1.actions.HttpMethod;
 @Deprecated
 class ActionMapper {
 
-  public static void index(JSONArray json, JobSpecNameIndex index) {
+  public static void index(JSONArray json, JobSpecIndex index) {
     for (int i = 0; i < json.length(); i++) {
       JSONObject action = json.getJSONObject(i);
-      index.trackAction(action.getString("name"));
+      index.trackAction(
+          action.getString("name"),
+          action.optString("execute_after"),
+          action.optString("execute_after_name"));
     }
   }
 

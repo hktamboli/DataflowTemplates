@@ -44,7 +44,6 @@ import org.neo4j.importer.v1.targets.RelationshipSchema;
 import org.neo4j.importer.v1.targets.RelationshipTarget;
 import org.neo4j.importer.v1.targets.RelationshipUniqueConstraint;
 import org.neo4j.importer.v1.targets.SourceTransformations;
-import org.neo4j.importer.v1.targets.Targets;
 import org.neo4j.importer.v1.targets.WriteMode;
 
 @SuppressWarnings("deprecation")
@@ -62,7 +61,8 @@ public class TargetMapperTest {
                     "mappings", Map.of())));
 
     var targets =
-        TargetMapper.parse(new JSONArray(List.of(nodeTarget)), new OptionsParams(), false);
+        TargetMapper.parse(
+            new JSONArray(List.of(nodeTarget)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getNodes())
         .isEqualTo(
@@ -125,7 +125,8 @@ public class TargetMapperTest {
                                     List.of(Map.of("field14", "prop14"), "prop15")))))));
 
     var targets =
-        TargetMapper.parse(new JSONArray(List.of(nodeTarget)), new OptionsParams(), false);
+        TargetMapper.parse(
+            new JSONArray(List.of(nodeTarget)), new OptionsParams(), new JobSpecIndex(), false);
 
     var expectedTarget =
         new NodeTarget(
@@ -248,7 +249,9 @@ public class TargetMapperTest {
                                         "bytearrays",
                                         List.of(Map.of("field14", "prop14"), "prop15")))))));
 
-    var targets = TargetMapper.parse(new JSONArray(List.of(nodeTarget)), new OptionsParams(), true);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(nodeTarget)), new OptionsParams(), new JobSpecIndex(), true);
 
     var expectedSchema =
         new NodeSchema(
@@ -320,7 +323,8 @@ public class TargetMapperTest {
                     "mappings", Map.of())));
 
     var targets =
-        TargetMapper.parse(new JSONArray(List.of(edgeTarget)), new OptionsParams(), false);
+        TargetMapper.parse(
+            new JSONArray(List.of(edgeTarget)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getNodes()).isEmpty();
     assertThat(targets.getRelationships())
@@ -427,6 +431,7 @@ public class TargetMapperTest {
         TargetMapper.parse(
             new JSONArray(List.of(sourceNodeTarget, targetNodeTarget, edgeTarget)),
             new OptionsParams(),
+            new JobSpecIndex(),
             false);
 
     assertThat(targets.getNodes())
@@ -590,7 +595,8 @@ public class TargetMapperTest {
                                     List.of(Map.of("field14", "prop14"), "prop15")))))));
 
     var targets =
-        TargetMapper.parse(new JSONArray(List.of(edgeTarget)), new OptionsParams(), false);
+        TargetMapper.parse(
+            new JSONArray(List.of(edgeTarget)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getNodes())
         .isEqualTo(
@@ -746,7 +752,9 @@ public class TargetMapperTest {
                                     "bytearrays",
                                     List.of(Map.of("field14", "prop14"), "prop15")))))));
 
-    var targets = TargetMapper.parse(new JSONArray(List.of(edgeTarget)), new OptionsParams(), true);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(edgeTarget)), new OptionsParams(), new JobSpecIndex(), true);
 
     var expectedSchema =
         new RelationshipSchema(
@@ -806,8 +814,9 @@ public class TargetMapperTest {
     JSONObject customObject = jsonTarget.getJSONObject("custom_query");
     customObject.put("query", "UNWIND $rows AS row CREATE (:Node {prop: row.prop})");
 
-    Targets targets =
-        TargetMapper.parse(new JSONArray(List.of(jsonTarget)), new OptionsParams(), false);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(jsonTarget)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getNodes()).isEmpty();
     assertThat(targets.getRelationships()).isEmpty();
@@ -836,8 +845,9 @@ public class TargetMapperTest {
                                 "key", Map.of("field1", "prop1"),
                                 "unique", "prop2")))));
 
-    Targets targets =
-        TargetMapper.parse(new JSONArray(List.of(nodeTarget)), new OptionsParams(), false);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(nodeTarget)), new OptionsParams(), new JobSpecIndex(), false);
 
     var target = targets.getNodes().iterator().next();
     assertThat(target.getProperties())
@@ -882,8 +892,9 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets =
-        TargetMapper.parse(new JSONArray(List.of(target)), new OptionsParams(), false);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(target)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -902,8 +913,9 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets =
-        TargetMapper.parse(new JSONArray(List.of(target)), new OptionsParams(), false);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(target)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -921,8 +933,9 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets =
-        TargetMapper.parse(new JSONArray(List.of(target)), new OptionsParams(), false);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(target)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MATCH);
@@ -940,8 +953,9 @@ public class TargetMapperTest {
             "source", Map.of("label", "Placeholder1", "key", "key1"),
             "target", Map.of("label", "Placeholder2", "key", "key2")));
 
-    Targets targets =
-        TargetMapper.parse(new JSONArray(List.of(target)), new OptionsParams(), false);
+    var targets =
+        TargetMapper.parse(
+            new JSONArray(List.of(target)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
     assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
@@ -982,6 +996,175 @@ public class TargetMapperTest {
 
     assertThat(clauses)
         .isEqualTo(List.of(new OrderBy("col", Order.DESC), new OrderBy("col2", Order.ASC)));
+  }
+
+  @Test
+  public void parses_single_dependency_of_node_target() {
+    var nodeTarget =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name",
+                    "target2",
+                    "source",
+                    "a-source",
+                    "mode",
+                    "append",
+                    "execute_after",
+                    "node",
+                    "execute_after_name",
+                    "target1",
+                    "mappings",
+                    Map.of("label", "\"Placeholder2\"", "properties", Map.of("key", "a-key")))));
+    var jsonTargets = new JSONArray(List.of(nodeTarget));
+    var index = new JobSpecIndex();
+    TargetMapper.index(jsonTargets, index);
+
+    var targets = TargetMapper.parse(jsonTargets, new OptionsParams(), index, false);
+
+    assertThat(targets.getNodes()).hasSize(1);
+    var target = targets.getNodes().iterator().next();
+    assertThat(target.getDependencies()).isEqualTo(List.of("target1"));
+  }
+
+  @Test
+  public void resolves_dependencies_of_node_target() {
+    var edgeTarget1 =
+        new JSONObject(
+            Map.of(
+                "edge",
+                Map.of(
+                    "name", "edge-target-1",
+                    "mode", "append",
+                    "mappings", Map.of())));
+    var edgeTarget2 =
+        new JSONObject(
+            Map.of(
+                "edge",
+                Map.of(
+                    "name", "edge-target-2",
+                    "mode", "append",
+                    "mappings", Map.of())));
+    var nodeTarget =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name",
+                    "node-target",
+                    "source",
+                    "a-source",
+                    "mode",
+                    "append",
+                    "execute_after",
+                    "edges",
+                    "mappings",
+                    Map.of("label", "\"Placeholder2\"", "properties", Map.of("key", "a-key")))));
+    var jsonTargets = new JSONArray(List.of(edgeTarget1, nodeTarget, edgeTarget2));
+    var index = new JobSpecIndex();
+    TargetMapper.index(jsonTargets, index);
+
+    var targets = TargetMapper.parse(jsonTargets, new OptionsParams(), index, false);
+
+    assertThat(targets.getNodes()).hasSize(1);
+    var target = targets.getNodes().iterator().next();
+    assertThat(target.getDependencies()).isEqualTo(List.of("edge-target-1", "edge-target-2"));
+  }
+
+  @Test
+  public void resolves_dependencies_of_edge_target() {
+    var edgeTarget =
+        new JSONObject(
+            Map.of(
+                "edge",
+                Map.of(
+                    "name", "edge-target",
+                    "mode", "append",
+                    "execute_after", "nodes",
+                    "mappings", Map.of())));
+    var nodeTarget1 =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name",
+                    "node-target-1",
+                    "source",
+                    "a-source",
+                    "mode",
+                    "append",
+                    "mappings",
+                    Map.of("label", "\"Placeholder1\"", "properties", Map.of("key", "a-key")))));
+    var nodeTarget2 =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name",
+                    "node-target-2",
+                    "source",
+                    "a-source",
+                    "mode",
+                    "append",
+                    "mappings",
+                    Map.of("label", "\"Placeholder2\"", "properties", Map.of("key", "a-key")))));
+    var jsonTargets = new JSONArray(List.of(edgeTarget, nodeTarget1, nodeTarget2));
+    var index = new JobSpecIndex();
+    TargetMapper.index(jsonTargets, index);
+
+    var targets = TargetMapper.parse(jsonTargets, new OptionsParams(), index, false);
+
+    assertThat(targets.getRelationships()).hasSize(1);
+    var target = targets.getRelationships().iterator().next();
+    assertThat(target.getDependencies()).isEqualTo(List.of("node-target-1", "node-target-2"));
+  }
+
+  @Test
+  public void resolves_dependencies_of_custom_query() {
+    var queryTarget =
+        new JSONObject(
+            Map.of(
+                "custom_query",
+                Map.of(
+                    "name", "query-target",
+                    "execute_after", "nodes",
+                    "query", "RETURN 42")));
+    var nodeTarget1 =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name",
+                    "node-target-1",
+                    "source",
+                    "a-source",
+                    "mode",
+                    "append",
+                    "mappings",
+                    Map.of("label", "\"Placeholder1\"", "properties", Map.of("key", "a-key")))));
+    var nodeTarget2 =
+        new JSONObject(
+            Map.of(
+                "node",
+                Map.of(
+                    "name",
+                    "node-target-2",
+                    "source",
+                    "a-source",
+                    "mode",
+                    "append",
+                    "mappings",
+                    Map.of("label", "\"Placeholder2\"", "properties", Map.of("key", "a-key")))));
+    var jsonTargets = new JSONArray(List.of(queryTarget, nodeTarget1, nodeTarget2));
+    var index = new JobSpecIndex();
+    TargetMapper.index(jsonTargets, index);
+
+    var targets = TargetMapper.parse(jsonTargets, new OptionsParams(), index, false);
+
+    assertThat(targets.getCustomQueries()).hasSize(1);
+    var target = targets.getCustomQueries().iterator().next();
+    assertThat(target.getDependencies()).isEqualTo(List.of("node-target-1", "node-target-2"));
   }
 
   private static JSONObject jsonTargetOfType(String type) {

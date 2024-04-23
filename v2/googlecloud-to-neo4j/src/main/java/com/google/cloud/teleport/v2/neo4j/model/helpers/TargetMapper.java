@@ -61,30 +61,36 @@ import org.neo4j.importer.v1.targets.WriteMode;
 class TargetMapper {
   private static final Pattern ORDER_PATTERN = Pattern.compile("\\basc|desc\\b");
 
-  public static void index(JSONArray json, JobSpecNameIndex index) {
+  public static void index(JSONArray json, JobSpecIndex index) {
     // contrary to parse, embedded node definitions do not matter here as they cannot be depended
     // upon
     for (int i = 0; i < json.length(); i++) {
       var target = json.getJSONObject(i);
       if (target.has("node")) {
         var node = target.getJSONObject("node");
-        index.trackNode(normalizeName(i, node.getString("name"), ArtifactType.node));
+        var targetName = normalizeName(i, node.getString("name"), ArtifactType.node);
+        index.trackNode(
+            targetName, node.optString("execute_after"), node.optString("execute_after_name"));
         continue;
       }
       if (target.has("edge")) {
         var edge = target.getJSONObject("edge");
-        index.trackEdge(normalizeName(i, edge.getString("name"), ArtifactType.edge));
+        var targetName = normalizeName(i, edge.getString("name"), ArtifactType.edge);
+        index.trackEdge(
+            targetName, edge.optString("execute_after"), edge.optString("execute_after_name"));
         continue;
       }
       if (target.has("custom_query")) {
         var query = target.getJSONObject("custom_query");
+        String targetName = normalizeName(i, query.getString("name"), ArtifactType.custom_query);
         index.trackCustomQuery(
-            normalizeName(i, query.getString("name"), ArtifactType.custom_query));
+            targetName, query.optString("execute_after"), query.optString("execute_after_name"));
       }
     }
   }
 
-  public static Targets parse(JSONArray json, OptionsParams options, boolean indexAllProperties) {
+  public static Targets parse(
+      JSONArray json, OptionsParams options, JobSpecIndex jobIndex, boolean indexAllProperties) {
     List<NodeTarget> nodes = new ArrayList<>();
     List<RelationshipTarget> relationshipTargets = new ArrayList<>();
     List<CustomQueryTarget> queryTargets = new ArrayList<>();
@@ -95,7 +101,7 @@ class TargetMapper {
       if (!target.has("node")) {
         continue;
       }
-      nodes.add(parseNode(i, target.getJSONObject("node"), indexAllProperties));
+      nodes.add(parseNode(i, target.getJSONObject("node"), jobIndex, indexAllProperties));
     }
 
     // second pass: go through edge targets' source/target nodes
@@ -110,7 +116,7 @@ class TargetMapper {
       var mappings = edge.getJSONObject("mappings");
       // note: indexAllProperties is ignored here since embedded node definitions
       // only declare key properties. Key properties are backed by key constraints, and these
-      // constraints are always created with an index.
+      // constraints are always backed by an index.
       if (mappings.has("source")
           && findNodeTarget(mappings.getJSONObject("source"), nodes).isEmpty()) {
         var sourceNode = parseEdgeNode(edge, "source", nodeWriteMode);
@@ -128,16 +134,19 @@ class TargetMapper {
       var target = json.getJSONObject(i);
       if (target.has("edge")) {
         relationshipTargets.add(
-            parseEdge(i, target.getJSONObject("edge"), nodes, indexAllProperties));
+            parseEdge(i, target.getJSONObject("edge"), jobIndex, nodes, indexAllProperties));
         continue;
-      } else if (target.has("custom_query")) {
-        queryTargets.add(parseCustomQuery(i, target.getJSONObject("custom_query"), options));
+      }
+      if (target.has("custom_query")) {
+        queryTargets.add(
+            parseCustomQuery(i, target.getJSONObject("custom_query"), jobIndex, options));
       }
     }
     return new Targets(nodes, relationshipTargets, queryTargets);
   }
 
-  private static NodeTarget parseNode(int index, JSONObject node, boolean indexAllProperties) {
+  private static NodeTarget parseNode(
+      int index, JSONObject node, JobSpecIndex jobIndex, boolean indexAllProperties) {
     var mappings = node.getJSONObject("mappings");
     var labels = parseLabels(mappings);
     var targetName = normalizeName(index, node.getString("name"), ArtifactType.node);
@@ -147,7 +156,7 @@ class TargetMapper {
         getBooleanOrDefault(node, "active", true),
         targetName,
         getStringOrDefault(node, "source", DEFAULT_SOURCE_NAME),
-        null, // TODO: process dependencies
+        jobIndex.getDependencies(targetName),
         parseWriteMode(node.getString("mode")),
         parseSourceTransformations(node),
         labels,
@@ -156,7 +165,11 @@ class TargetMapper {
   }
 
   private static RelationshipTarget parseEdge(
-      int index, JSONObject edge, List<NodeTarget> nodes, boolean indexAllProperties) {
+      int index,
+      JSONObject edge,
+      JobSpecIndex jobIndex,
+      List<NodeTarget> nodes,
+      boolean indexAllProperties) {
     var writeMode = parseWriteMode(edge.getString("mode"));
     var nodeMatchMode = parseNodeMatchMode(edge, writeMode);
     var mappings = edge.getJSONObject("mappings");
@@ -176,7 +189,7 @@ class TargetMapper {
         getBooleanOrDefault(edge, "active", true),
         targetName,
         getStringOrDefault(edge, "source", DEFAULT_SOURCE_NAME),
-        null, // TODO: process dependencies
+        jobIndex.getDependencies(targetName),
         relationshipType,
         writeMode,
         nodeMatchMode,
@@ -188,7 +201,7 @@ class TargetMapper {
   }
 
   private static CustomQueryTarget parseCustomQuery(
-      int index, JSONObject query, OptionsParams options) {
+      int index, JSONObject query, JobSpecIndex jobIndex, OptionsParams options) {
     String cypher =
         ModelUtils.replaceVariableTokens(query.getString("query"), options.getTokenMap());
     String targetName = normalizeName(index, query.getString("name"), ArtifactType.custom_query);
@@ -196,7 +209,7 @@ class TargetMapper {
         getBooleanOrDefault(query, "active", true),
         targetName,
         getStringOrDefault(query, "source", DEFAULT_SOURCE_NAME),
-        null, // TODO: process dependencies
+        jobIndex.getDependencies(targetName),
         cypher);
   }
 
