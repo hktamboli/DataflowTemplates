@@ -1,0 +1,15 @@
+add deadletter to PubsubAvroToBigQueryIT
+
+Signed-off-by: Jeffrey Kinard <jeff@thekinards.com>
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# Date:      Wed Apr 24 13:36:44 2024 -0400
+#
+# On branch jkinard/pubsub-avro
+# Your branch is up to date with 'origin/jkinard/pubsub-avro'.
+#
+# Changes to be committed:
+#	modified:   v2/pubsub-binary-to-bigquery/src/test/java/com/google/cloud/teleport/v2/templates/PubsubAvroToBigQueryIT.java
+#
