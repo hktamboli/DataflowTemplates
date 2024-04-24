@@ -43,10 +43,7 @@ class ActionMapper {
   public static void index(JSONArray json, JobSpecIndex index) {
     for (int i = 0; i < json.length(); i++) {
       JSONObject action = json.getJSONObject(i);
-      index.trackAction(
-          action.getString("name"),
-          action.optString("execute_after"),
-          action.optString("execute_after_name"));
+      index.trackAction(action.getString("name"), action.optString("execute_after"));
     }
   }
 
