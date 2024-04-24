@@ -42,80 +42,82 @@ class JobSpecIndex {
 
   public void trackNode(String name, String executeAfter, String executeAfterName) {
     nodeTargets.add(name);
-    if (executeAfter != null) {
-      if (executeAfter.toLowerCase(Locale.ROOT).equals("action")) {
-        var stage = actionStages.get(executeAfterName);
-        if (stage == null) {
-          actionStages.put(executeAfterName, ActionStage.PRE_NODES);
-          return;
-        }
-        switch (stage) {
-          case START:
-          case PRE_NODES:
-            return;
-          case PRE_RELATIONSHIPS:
-          case PRE_QUERIES:
-            actionStages.put(executeAfterName, ActionStage.START);
-            break;
-          default:
-            throw incompatibleStageException(executeAfterName, stage, ActionStage.PRE_NODES);
-        }
-      } else {
-        dependencyGraph.put(name, () -> resolveDependencies(executeAfter, executeAfterName));
-      }
+    if (executeAfter == null) {
+      return;
+    }
+    if (!dependsOnAction(executeAfter)) {
+      registerDependency(name, executeAfter, executeAfterName);
+      return;
+    }
+    var stage = actionStages.get(executeAfterName);
+    if (stage == null) {
+      actionStages.put(executeAfterName, ActionStage.PRE_NODES);
+      return;
+    }
+    switch (stage) {
+      case START:
+      case PRE_NODES:
+        return;
+      case PRE_RELATIONSHIPS:
+      case PRE_QUERIES:
+        actionStages.put(executeAfterName, ActionStage.START);
+        break;
+      default:
+        throw incompatibleStageException(executeAfterName, stage, ActionStage.PRE_NODES);
     }
   }
 
   public void trackEdge(String name, String executeAfter, String executeAfterName) {
     edgeTargets.add(name);
-    if (executeAfter != null) {
-      if (executeAfter.toLowerCase(Locale.ROOT).equals("action")) {
-        var stage = actionStages.get(executeAfterName);
-        if (stage == null) {
-          actionStages.put(executeAfterName, ActionStage.PRE_RELATIONSHIPS);
-          return;
-        }
-        switch (stage) {
-          case START:
-          case PRE_RELATIONSHIPS:
-            return;
-          case PRE_NODES:
-          case PRE_QUERIES:
-            actionStages.put(executeAfterName, ActionStage.START);
-            break;
-          default:
-            throw incompatibleStageException(
-                executeAfterName, stage, ActionStage.PRE_RELATIONSHIPS);
-        }
-      } else {
-        dependencyGraph.put(name, () -> resolveDependencies(executeAfter, executeAfterName));
-      }
+    if (executeAfter == null) {
+      return;
+    }
+    if (!dependsOnAction(executeAfter)) {
+      registerDependency(name, executeAfter, executeAfterName);
+      return;
+    }
+    var stage = actionStages.get(executeAfterName);
+    if (stage == null) {
+      actionStages.put(executeAfterName, ActionStage.PRE_RELATIONSHIPS);
+      return;
+    }
+    switch (stage) {
+      case START:
+      case PRE_RELATIONSHIPS:
+        return;
+      case PRE_NODES:
+      case PRE_QUERIES:
+        actionStages.put(executeAfterName, ActionStage.START);
+        break;
+      default:
+        throw incompatibleStageException(executeAfterName, stage, ActionStage.PRE_RELATIONSHIPS);
     }
   }
 
   public void trackCustomQuery(String name, String executeAfter, String executeAfterName) {
     customQueryTargets.add(name);
-    if (executeAfter != null) {
-      if (executeAfter.toLowerCase(Locale.ROOT).equals("action")) {
-        var stage = actionStages.get(executeAfterName);
-        if (stage == null) {
-          actionStages.put(executeAfterName, ActionStage.PRE_QUERIES);
-          return;
-        }
-        switch (stage) {
-          case START:
-          case PRE_QUERIES:
-            return;
-          case PRE_NODES:
-          case PRE_RELATIONSHIPS:
-            actionStages.put(executeAfterName, ActionStage.START);
-            break;
-          default:
-            throw incompatibleStageException(executeAfterName, stage, ActionStage.PRE_QUERIES);
-        }
-      } else {
-        dependencyGraph.put(name, () -> resolveDependencies(executeAfter, executeAfterName));
-      }
+    if (executeAfter == null) {
+      return;
+    }
+    if (!dependsOnAction(executeAfter)) {
+      registerDependency(name, executeAfter, executeAfterName);
+      return;
+    }
+    var stage = actionStages.get(executeAfterName);
+    if (stage == null) {
+      actionStages.put(executeAfterName, ActionStage.PRE_QUERIES);
+      return;
+    }
+    switch (stage) {
+      case START:
+      case PRE_QUERIES:
+        return;
+      case PRE_NODES:
+      case PRE_RELATIONSHIPS:
+        actionStages.put(executeAfterName, ActionStage.START);
+        break;
+      default:
+        throw incompatibleStageException(executeAfterName, stage, ActionStage.PRE_QUERIES);
     }
   }
 
@@ -170,6 +172,10 @@ class JobSpecIndex {
 
   public ActionStage getActionStage(String name) {
     return actionStages.getOrDefault(name, ActionStage.END);
+  }
+
+  private void registerDependency(String name, String executeAfter, String executeAfterName) {
+    dependencyGraph.put(name, () -> resolveDependencies(executeAfter, executeAfterName));
   }
 
   private List<String> resolveDependencies(String executeAfter, String executeAfterName) {
@@ -254,5 +260,9 @@ class JobSpecIndex {
         String.format(
             "Cannot reconcile stage for action \"%s\": it was initially %s and needs to be %s",
             actionName, previousStage, newStage));
+  }
+
+  private static boolean dependsOnAction(String executeAfter) {
+    return executeAfter.toLowerCase(Locale.ROOT).equals("action");
   }
 }
