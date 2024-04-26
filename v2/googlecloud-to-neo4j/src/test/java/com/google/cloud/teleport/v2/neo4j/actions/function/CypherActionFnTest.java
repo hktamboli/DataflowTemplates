@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
+import com.google.cloud.teleport.v2.neo4j.model.connection.ConnectionParams;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import java.util.Map;
 import org.apache.beam.sdk.transforms.DoFn.ProcessContext;
@@ -32,17 +33,19 @@ import org.neo4j.importer.v1.actions.CypherExecutionMode;
 
 public class CypherActionFnTest {
   private final Neo4jConnection connection = mock(Neo4jConnection.class);
-  private final ActionContext context = new ActionContext();
 
   @Test
   public void sends_transaction_metadata_for_autocommit_Cypher_action() {
-    context.action =
-        new CypherAction(
-            true,
-            "the-answer",
-            ActionStage.POST_NODES,
-            "RETURN 42",
-            CypherExecutionMode.AUTOCOMMIT);
+    var context =
+        new ActionContext(
+            new CypherAction(
+                true,
+                "the-answer",
+                ActionStage.POST_NODES,
+                "RETURN 42",
+                CypherExecutionMode.AUTOCOMMIT),
+            mock(ConnectionParams.class),
+            "a-version");
     CypherActionFn actionFn = new CypherActionFn(context, () -> connection);
     actionFn.setup();
 
@@ -59,13 +62,16 @@ public class CypherActionFnTest {
 
   @Test
   public void sends_transaction_metadata_for_transactional_Cypher_action() {
-    context.action =
-        new CypherAction(
-            true,
-            "the-answer",
-            ActionStage.POST_NODES,
-            "RETURN 42",
-            CypherExecutionMode.TRANSACTION);
+    var context =
+        new ActionContext(
+            new CypherAction(
+                true,
+                "the-answer",
+                ActionStage.POST_NODES,
+                "RETURN 42",
+                CypherExecutionMode.TRANSACTION),
+            mock(ConnectionParams.class),
+            "a-version");
     CypherActionFn actionFn = new CypherActionFn(context, () -> connection);
     actionFn.setup();
 

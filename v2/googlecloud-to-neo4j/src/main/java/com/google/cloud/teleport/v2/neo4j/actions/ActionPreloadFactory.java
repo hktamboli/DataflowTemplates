@@ -21,27 +21,24 @@ import com.google.cloud.teleport.v2.neo4j.actions.preload.PreloadCypherAction;
 import com.google.cloud.teleport.v2.neo4j.actions.preload.PreloadHttpAction;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import org.neo4j.importer.v1.actions.Action;
-import org.neo4j.importer.v1.actions.BigQueryAction;
-import org.neo4j.importer.v1.actions.CypherAction;
-import org.neo4j.importer.v1.actions.HttpAction;
 
 /** Factory providing indirection to action handler. */
 public class ActionPreloadFactory {
 
-  public static PreloadAction<? extends Action> of(Action action, ActionContext context) {
+  public static PreloadAction of(Action action, ActionContext context) {
     var actionType = action.getType();
     switch (actionType) {
       case CYPHER:
         PreloadCypherAction cypher = new PreloadCypherAction();
-        cypher.configure((CypherAction) action, context);
+        cypher.configure(action, context);
         return cypher;
       case HTTP:
         PreloadHttpAction http = new PreloadHttpAction();
-        http.configure((HttpAction) action, context);
+        http.configure(action, context);
         return http;
       case BIGQUERY:
         PreloadBigQueryAction bigQuery = new PreloadBigQueryAction();
-        bigQuery.configure((BigQueryAction) action, context);
+        bigQuery.configure(action, context);
         return bigQuery;
     }
     throw new RuntimeException("Unsupported preload action type: " + actionType);

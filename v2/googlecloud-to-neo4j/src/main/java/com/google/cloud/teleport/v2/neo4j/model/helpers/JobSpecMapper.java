@@ -18,6 +18,7 @@ package com.google.cloud.teleport.v2.neo4j.model.helpers;
 import com.google.cloud.teleport.v2.neo4j.model.job.OptionsParams;
 import com.google.cloud.teleport.v2.neo4j.utils.FileSystemUtils;
 import java.io.StringReader;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.json.JSONArray;
@@ -97,7 +98,7 @@ public class JobSpecMapper {
   }
 
   private static Map<String, Object> parseConfig(JSONObject json) {
-    return json.has("config") ? json.getJSONObject("config").toMap() : null;
+    return json.has("config") ? json.getJSONObject("config").toMap() : Collections.emptyMap();
   }
 
   private static List<Source> parseSources(JSONObject json, OptionsParams options) {

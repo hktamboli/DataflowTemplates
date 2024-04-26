@@ -21,21 +21,22 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.neo4j.importer.v1.actions.Action;
 import org.neo4j.importer.v1.actions.HttpAction;
 import org.neo4j.importer.v1.actions.HttpMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Http POST action handler. */
-public class PreloadHttpAction implements PreloadAction<HttpAction> {
+/** Http action handler. */
+public class PreloadHttpAction implements PreloadAction {
 
   private static final Logger LOG = LoggerFactory.getLogger(PreloadHttpAction.class);
 
   private HttpAction action;
 
   @Override
-  public void configure(HttpAction action, ActionContext context) {
-    this.action = action;
+  public void configure(Action action, ActionContext context) {
+    this.action = (HttpAction) action;
   }
 
   @Override

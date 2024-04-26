@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
+import com.google.cloud.teleport.v2.neo4j.model.connection.ConnectionParams;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import java.util.Map;
 import org.junit.Test;
@@ -37,10 +38,11 @@ public class PreloadCypherActionTest {
 
   @Test
   public void sends_transaction_metadata_for_autocommit_Cypher_preload_action() {
-    CypherAction action =
+    var action =
         new CypherAction(
             true, "the-answer", ActionStage.START, "RETURN 42", CypherExecutionMode.AUTOCOMMIT);
-    preloadAction.configure(action, new ActionContext());
+    preloadAction.configure(
+        action, new ActionContext(action, mock(ConnectionParams.class), "a-version"));
 
     preloadAction.execute();
 
@@ -55,10 +57,11 @@ public class PreloadCypherActionTest {
 
   @Test
   public void sends_transaction_metadata_for_transactional_Cypher_preload_action() {
-    CypherAction action =
+    var action =
         new CypherAction(
             true, "the-answer", ActionStage.START, "RETURN 42", CypherExecutionMode.TRANSACTION);
-    preloadAction.configure(action, new ActionContext());
+    preloadAction.configure(
+        action, new ActionContext(action, mock(ConnectionParams.class), "a-version"));
 
     preloadAction.execute();
 

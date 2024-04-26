@@ -26,13 +26,14 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.TransactionConfig;
+import org.neo4j.importer.v1.actions.Action;
 import org.neo4j.importer.v1.actions.CypherAction;
 import org.neo4j.importer.v1.actions.CypherExecutionMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Cypher runner action handler. */
-public class PreloadCypherAction implements PreloadAction<CypherAction> {
+public class PreloadCypherAction implements PreloadAction {
 
   private static final Logger LOG = LoggerFactory.getLogger(PreloadCypherAction.class);
   private final BiFunction<ConnectionParams, String, Neo4jConnection> connectionProvider;
@@ -51,21 +52,22 @@ public class PreloadCypherAction implements PreloadAction<CypherAction> {
   }
 
   @Override
-  public void configure(CypherAction action, ActionContext context) {
-    String cypher = action.getQuery();
+  public void configure(Action action, ActionContext context) {
+    var cypherAction = (CypherAction) action;
+    String cypher = cypherAction.getQuery();
     if (StringUtils.isEmpty(cypher)) {
       throw new RuntimeException("Cypher query not provided for preload cypher action.");
     }
     this.context = context;
     this.cypher = cypher;
-    this.executionMode = action.getExecutionMode();
+    this.executionMode = cypherAction.getExecutionMode();
   }
 
   @Override
   public List<String> execute() {
     try (Neo4jConnection connection =
         connectionProvider.apply(
-            this.context.neo4jConnectionParams, this.context.templateVersion)) {
+            this.context.getNeo4jConnectionParams(), this.context.getTemplateVersion())) {
       LOG.info("Executing cypher: {}", cypher);
       try {
         run(connection);

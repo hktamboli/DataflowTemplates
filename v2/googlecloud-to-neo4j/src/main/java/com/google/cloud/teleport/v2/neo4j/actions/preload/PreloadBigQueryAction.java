@@ -23,16 +23,17 @@ import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
+import org.neo4j.importer.v1.actions.Action;
 import org.neo4j.importer.v1.actions.BigQueryAction;
 
 /** Query action handler. */
-public class PreloadBigQueryAction implements PreloadAction<BigQueryAction> {
+public class PreloadBigQueryAction implements PreloadAction {
 
   private BigQueryAction action;
 
   @Override
-  public void configure(BigQueryAction action, ActionContext context) {
-    this.action = action;
+  public void configure(Action action, ActionContext context) {
+    this.action = (BigQueryAction) action;
   }
 
   @Override

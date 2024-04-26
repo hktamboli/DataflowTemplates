@@ -21,15 +21,13 @@ import com.google.cloud.teleport.v2.neo4j.actions.function.HttpActionFn;
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.Row;
-import org.neo4j.importer.v1.actions.Action;
-import org.neo4j.importer.v1.actions.ActionType;
 
 /** Factory providing indirection to action handler. */
 public class ActionDoFnFactory {
 
   public static DoFn<Integer, Row> of(ActionContext context) {
-    Action action = context.action;
-    ActionType actionType = action.getType();
+    var action = context.getAction();
+    var actionType = action.getType();
     switch (actionType) {
       case BIGQUERY:
         return new BigQueryActionFn(context);

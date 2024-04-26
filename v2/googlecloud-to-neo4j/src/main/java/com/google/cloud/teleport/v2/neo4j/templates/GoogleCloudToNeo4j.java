@@ -15,12 +15,17 @@
  */
 package com.google.cloud.teleport.v2.neo4j.templates;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
+
 import com.google.cloud.teleport.metadata.Template;
 import com.google.cloud.teleport.metadata.Template.AdditionalDocumentationBlock;
 import com.google.cloud.teleport.metadata.TemplateCategory;
 import com.google.cloud.teleport.v2.common.UncaughtExceptionLogger;
 import com.google.cloud.teleport.v2.neo4j.actions.ActionDoFnFactory;
 import com.google.cloud.teleport.v2.neo4j.actions.ActionPreloadFactory;
+import com.google.cloud.teleport.v2.neo4j.actions.preload.PreloadAction;
 import com.google.cloud.teleport.v2.neo4j.database.Neo4jConnection;
 import com.google.cloud.teleport.v2.neo4j.model.InputValidator;
 import com.google.cloud.teleport.v2.neo4j.model.Json;
@@ -43,12 +48,16 @@ import com.google.cloud.teleport.v2.neo4j.utils.FileSystemUtils;
 import com.google.cloud.teleport.v2.neo4j.utils.ModelUtils;
 import com.google.cloud.teleport.v2.neo4j.utils.ProcessingCoder;
 import com.google.cloud.teleport.v2.utils.SecretManagerUtils;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.io.FileSystems;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -60,6 +69,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.importer.v1.Configuration;
 import org.neo4j.importer.v1.ImportSpecification;
 import org.neo4j.importer.v1.actions.Action;
@@ -69,6 +79,7 @@ import org.neo4j.importer.v1.targets.CustomQueryTarget;
 import org.neo4j.importer.v1.targets.NodeTarget;
 import org.neo4j.importer.v1.targets.RelationshipTarget;
 import org.neo4j.importer.v1.targets.Target;
+import org.neo4j.importer.v1.targets.TargetType;
 import org.neo4j.importer.v1.targets.Targets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -243,17 +254,26 @@ public class GoogleCloudToNeo4j {
     }
 
     ////////////////////////////
-    // Run preload actions
-    runPreloadActions(preloadActions(importSpecification));
-
-    ////////////////////////////
     // If an action transformation has no upstream PCollection, it will use this default context
     PCollection<Row> defaultActionContext =
         pipeline.apply(
             "Default Context",
             Create.empty(TypeDescriptor.of(Row.class)).withCoder(ProcessingCoder.of()));
 
-    BeamBlock processingQueue = new BeamBlock(defaultActionContext);
+    var processingQueue = new BeamBlock(defaultActionContext);
+
+    runPreloadActions(findActionsByStage(ActionStage.START).collect(toList()));
+
+    Map<ActionStage, List<PCollection<?>>> preActionRows =
+        findActionsByStages(
+                Set.of(
+                    ActionStage.PRE_NODES, ActionStage.PRE_RELATIONSHIPS, ActionStage.PRE_QUERIES))
+            .map(action -> Map.entry(action.getStage(), runAction(action, defaultActionContext)))
+            .collect(
+                groupingBy(
+                    Entry::getKey, mapping(Entry::getValue, Collectors.<PCollection<?>>toList())));
+    var sourceRows = new ArrayList<PCollection<?>>(importSpecification.getSources().size());
+    var targetRows = new HashMap<TargetType, List<PCollection<?>>>(targetCount());
 
     ////////////////////////////
     // Process sources
@@ -265,6 +285,7 @@ public class GoogleCloudToNeo4j {
       PCollection<Row> sourceMetadata =
           pipeline.apply(
               String.format("Metadata for source %s", source.getName()), provider.queryMetadata());
+      sourceRows.add(sourceMetadata);
       Schema sourceBeamSchema = sourceMetadata.getSchema();
       processingQueue.addToQueue(
           ArtifactType.source, false, source.getName(), defaultActionContext, sourceMetadata);
@@ -290,7 +311,7 @@ public class GoogleCloudToNeo4j {
       // No optimization possible so write nodes then edges.
       // Write node targets
       List<NodeTarget> nodeTargets =
-          getActiveTargetsBySourceAndType(importSpecification, sourceName, NodeTarget.class);
+          getActiveTargetsBySourceAndType(importSpecification, sourceName, TargetType.NODE);
       for (NodeTarget target : nodeTargets) {
         TargetQuerySpec targetQuerySpec =
             new TargetQuerySpecBuilder()
@@ -309,6 +330,11 @@ public class GoogleCloudToNeo4j {
             pipeline.apply(
                 "Query " + nodeStepDescription, provider.queryTargetBeamRows(targetQuerySpec));
 
+        List<PCollection<?>> dependencies =
+            new ArrayList<>(preActionRows.getOrDefault(ActionStage.PRE_NODES, List.of()));
+        dependencies.add(
+            processingQueue.waitOnCollections(target.getDependencies(), nodeStepDescription));
+
         PCollection<Row> blockingReturn =
             preInsertBeamRows
                 .apply(
@@ -316,10 +342,8 @@ public class GoogleCloudToNeo4j {
                         + nodeStepDescription
                         + "(after "
                         + String.join(", ", target.getDependencies())
-                        + ")",
-                    Wait.on(
-                        processingQueue.waitOnCollections(
-                            target.getDependencies(), nodeStepDescription)))
+                        + " and pre-nodes actions)",
+                    Wait.on(dependencies))
                 .setCoder(preInsertBeamRows.getCoder())
                 .apply(
                     "Writing " + nodeStepDescription,
@@ -331,6 +355,10 @@ public class GoogleCloudToNeo4j {
                         target))
                 .setCoder(preInsertBeamRows.getCoder());
 
+        targetRows
+            .computeIfAbsent(TargetType.NODE, (type) -> new ArrayList<>(nodeTargets.size()))
+            .add(blockingReturn);
+
         processingQueue.addToQueue(
             ArtifactType.node, false, target.getName(), blockingReturn, preInsertBeamRows);
       }
@@ -338,8 +366,7 @@ public class GoogleCloudToNeo4j {
       ////////////////////////////
       // Write relationship targets
       List<RelationshipTarget> relationshipTargets =
-          getActiveTargetsBySourceAndType(
-              importSpecification, sourceName, RelationshipTarget.class);
+          getActiveTargetsBySourceAndType(importSpecification, sourceName, TargetType.RELATIONSHIP);
       for (var target : relationshipTargets) {
         var targetQuerySpec =
             new TargetQuerySpecBuilder()
@@ -365,6 +392,13 @@ public class GoogleCloudToNeo4j {
         } else {
           preInsertBeamRows = nullableSourceBeamRows;
         }
+
+        List<PCollection<?>> dependencies =
+            new ArrayList<>(preActionRows.getOrDefault(ActionStage.PRE_RELATIONSHIPS, List.of()));
+        dependencies.add(
+            processingQueue.waitOnCollections(
+                target.getDependencies(), relationshipStepDescription));
+
         PCollection<Row> blockingReturn =
             preInsertBeamRows
                 .apply(
@@ -372,10 +406,8 @@ public class GoogleCloudToNeo4j {
                         + relationshipStepDescription
                         + "(after "
                         + String.join(", ", target.getDependencies())
-                        + ")",
-                    Wait.on(
-                        processingQueue.waitOnCollections(
-                            target.getDependencies(), relationshipStepDescription)))
+                        + " and pre-relationships actions)",
+                    Wait.on(dependencies))
                 .setCoder(preInsertBeamRows.getCoder())
                 .apply(
                     "Writing " + relationshipStepDescription,
@@ -387,6 +419,10 @@ public class GoogleCloudToNeo4j {
                         target))
                 .setCoder(preInsertBeamRows.getCoder());
 
+        targetRows
+            .computeIfAbsent(
+                TargetType.RELATIONSHIP, (type) -> new ArrayList<>(relationshipTargets.size()))
+            .add(blockingReturn);
         // serialize relationships
         processingQueue.addToQueue(
             ArtifactType.edge, false, target.getName(), blockingReturn, preInsertBeamRows);
@@ -394,7 +430,7 @@ public class GoogleCloudToNeo4j {
       ////////////////////////////
       // Custom query targets
       List<CustomQueryTarget> customQueryTargets =
-          getActiveTargetsBySourceAndType(importSpecification, sourceName, CustomQueryTarget.class);
+          getActiveTargetsBySourceAndType(importSpecification, sourceName, TargetType.QUERY);
       for (Target target : customQueryTargets) {
         String customQueryStepDescription =
             targetSequence.getSequenceNumber(target)
@@ -404,6 +440,12 @@ public class GoogleCloudToNeo4j {
                 + target.getName()
                 + " (custom query)";
 
+        List<PCollection<?>> dependencies =
+            new ArrayList<>(preActionRows.getOrDefault(ActionStage.PRE_QUERIES, List.of()));
+        dependencies.add(
+            processingQueue.waitOnCollections(
+                target.getDependencies(), customQueryStepDescription));
+
         PCollection<Row> blockingReturn =
             nullableSourceBeamRows
                 .apply(
@@ -412,9 +454,7 @@ public class GoogleCloudToNeo4j {
                         + "(after "
                         + String.join(", ", target.getDependencies())
                         + ")",
-                    Wait.on(
-                        processingQueue.waitOnCollections(
-                            target.getDependencies(), customQueryStepDescription)))
+                    Wait.on(dependencies))
                 .setCoder(nullableSourceBeamRows.getCoder())
                 .apply(
                     "Writing " + customQueryStepDescription,
@@ -426,6 +466,9 @@ public class GoogleCloudToNeo4j {
                         target))
                 .setCoder(nullableSourceBeamRows.getCoder());
 
+        targetRows
+            .computeIfAbsent(TargetType.QUERY, (type) -> new ArrayList<>(customQueryTargets.size()))
+            .add(blockingReturn);
         processingQueue.addToQueue(
             ArtifactType.custom_query,
             false,
@@ -435,16 +478,89 @@ public class GoogleCloudToNeo4j {
       }
     }
 
-    ////////////////////////////
-    // Process actions (first pass)
-    List<Action> postLoadActions =
-        importSpecification.getActions().stream()
-            .filter(action -> action.getStage() != ActionStage.START)
-            .collect(Collectors.toList());
-    runBeamActions(postLoadActions, defaultActionContext.getCoder(), processingQueue);
+    // Process POST-* actions, gather outputs and run END actions
+    List<PCollection<?>> endActionDependencies =
+        findActionsByStage(ActionStage.POST_SOURCES)
+            .map(action -> runAction(action, defaultActionContext, sourceRows))
+            .collect(Collectors.toCollection(ArrayList::new));
+    endActionDependencies.addAll(
+        findActionsByStage(ActionStage.POST_NODES)
+            .map(
+                action ->
+                    runAction(
+                        action,
+                        defaultActionContext,
+                        targetRows.getOrDefault(TargetType.NODE, List.of())))
+            .collect(toList()));
+    endActionDependencies.addAll(
+        findActionsByStage(ActionStage.POST_RELATIONSHIPS)
+            .map(
+                action ->
+                    runAction(
+                        action,
+                        defaultActionContext,
+                        targetRows.getOrDefault(TargetType.RELATIONSHIP, List.of())))
+            .collect(toList()));
+    endActionDependencies.addAll(
+        findActionsByStage(ActionStage.POST_QUERIES)
+            .map(
+                action ->
+                    runAction(
+                        action,
+                        defaultActionContext,
+                        targetRows.getOrDefault(TargetType.QUERY, List.of())))
+            .collect(toList()));
+    findActionsByStage(ActionStage.END)
+        .map(action -> runAction(action, defaultActionContext, endActionDependencies))
+        .forEach(GoogleCloudToNeo4j::noOp);
 
     // For a Dataflow Flex Template, do NOT waitUntilFinish().
     pipeline.run();
+  }
+
+  private PCollection<Row> runAction(Action action, PCollection<Row> defaultActionContext) {
+    return runAction(action, defaultActionContext, List.of());
+  }
+
+  private PCollection<Row> runAction(
+      Action action, PCollection<Row> defaultActionContext, List<PCollection<?>> dependencies) {
+    var actionName = action.getName();
+    return pipeline
+        .apply(String.format("** Setup %s", actionName), Create.of(1))
+        .apply(
+            String.format("** Wait on %s dependencies", action.getStage()), Wait.on(dependencies))
+        .setCoder(VarIntCoder.of())
+        .apply(
+            String.format("Running action %s", actionName),
+            ParDo.of(ActionDoFnFactory.of(newActionContext(action))))
+        .setCoder(defaultActionContext.getCoder());
+  }
+
+  private Stream<Action> findActionsByStage(ActionStage stage) {
+    return findActionsByStages(Set.of(stage));
+  }
+
+  private Stream<Action> findActionsByStages(Set<ActionStage> stages) {
+    return importSpecification.getActions().stream()
+        .filter(action -> stages.contains(action.getStage()));
+  }
+
+  private void runPreloadActions(List<Action> actions) {
+    for (Action action : actions) {
+      LOG.debug("Executing START action: {}", action.getName());
+      // Get targeted execution context
+      ActionContext context = new ActionContext(action, neo4jConnection, templateVersion);
+      PreloadAction actionImpl = ActionPreloadFactory.of(action, context);
+      List<String> msgs = actionImpl.execute();
+      for (String msg : msgs) {
+        LOG.info("START action {} output: {}", action.getName(), msg);
+      }
+    }
+  }
+
+  @NotNull
+  private ActionContext newActionContext(Action action) {
+    return new ActionContext(action, this.neo4jConnection, this.templateVersion);
   }
 
   private static NodeTarget findNodeTargetByName(List<NodeTarget> nodes, String reference) {
@@ -456,80 +572,24 @@ public class GoogleCloudToNeo4j {
 
   @SuppressWarnings("unchecked")
   private <T extends Target> List<T> getActiveTargetsBySourceAndType(
-      ImportSpecification importSpecification, String sourceName, Class<T> targetType) {
+      ImportSpecification importSpecification, String sourceName, TargetType targetType) {
     Targets targets = importSpecification.getTargets();
-    if (targetType.equals(NodeTarget.class)) {
-      return findActiveTargetBySource(sourceName, (List<T>) targets.getNodes());
-    }
-    if (targetType.equals(RelationshipTarget.class)) {
-      return findActiveTargetBySource(sourceName, (List<T>) targets.getRelationships());
-    }
-    if (targetType.equals(CustomQueryTarget.class)) {
-      return findActiveTargetBySource(sourceName, (List<T>) targets.getCustomQueries());
-    }
-    throw new IllegalArgumentException(
-        String.format("Cannot filter unsupported target type %s", targetType));
+    return targets.getAll().stream()
+        .filter(
+            target ->
+                target.getTargetType() == targetType
+                    && target.isActive()
+                    && sourceName.equals(target.getSource()))
+        .map(target -> (T) target)
+        .collect(toList());
   }
 
-  private static <T extends Target> List<T> findActiveTargetBySource(
-      String sourceName, List<T> targets) {
-    return targets.stream()
-        .filter(target -> target.isActive() && sourceName.equals(target.getSource()))
-        .collect(Collectors.toList());
-  }
+  private static <T> void noOp(T item) {}
 
-  private List<org.neo4j.importer.v1.actions.Action> preloadActions(ImportSpecification jobSpec) {
-    return jobSpec.getActions().stream()
-        .filter(action -> action.getStage() == ActionStage.START)
-        .collect(Collectors.toList());
-  }
-
-  private void runPreloadActions(List<Action> actions) {
-    for (Action action : actions) {
-      LOG.info("Executing preload action: {}", action.getName());
-      // Get targeted execution context
-      ActionContext context = new ActionContext();
-      context.importSpecification = this.importSpecification;
-      context.neo4jConnectionParams = this.neo4jConnection;
-      List<String> outputMessages = ActionPreloadFactory.of(action, context).execute();
-      for (String msg : outputMessages) {
-        LOG.info("Preload action {}: {}", action.getName(), msg);
-      }
-    }
-  }
-
-  private void runBeamActions(List<Action> actions, Coder<Row> coder, BeamBlock blockingQueue) {
-    for (Action action : actions) {
-      LOG.info("Registering action: {}", action.getName());
-      ActionContext context = new ActionContext();
-      context.action = action;
-      context.importSpecification = this.importSpecification;
-      context.neo4jConnectionParams = this.neo4jConnection;
-      context.templateVersion = this.templateVersion;
-
-      PCollection<Row> blockingReturn =
-          pipeline
-              .apply("** Setup " + action.getName(), Create.of(1))
-              .apply(
-                  "** Unblocking " + action.getName() + "(after " + action.getStage() + ")",
-                  Wait.on(
-                      blockingQueue.waitOnCollections(
-                          stageAsDependencies(action.getStage()), action.getName())))
-              .setCoder(VarIntCoder.of())
-              .apply("Running " + action.getName(), ParDo.of(ActionDoFnFactory.of(context)))
-              .setCoder(coder);
-
-      // TODO: remove since actions cannot be depended upon anymore?
-      blockingQueue.addToQueue(
-          ArtifactType.action,
-          action.getStage() == ActionStage.START,
-          action.getName(),
-          blockingReturn);
-    }
-  }
-
-  // TODO: resolve action stage
-  private List<String> stageAsDependencies(ActionStage stage) {
-    return null;
+  private int targetCount() {
+    var targets = this.importSpecification.getTargets();
+    return targets.getNodes().size()
+        + targets.getRelationships().size()
+        + targets.getCustomQueries().size();
   }
 }

@@ -22,9 +22,9 @@ import org.neo4j.importer.v1.actions.Action;
 /**
  * Interface for running preload Actions. Before the pipeline loads, PCollections are not available.
  */
-public interface PreloadAction<T extends Action> {
+public interface PreloadAction {
 
-  void configure(T action, ActionContext context);
+  void configure(Action action, ActionContext context);
 
   List<String> execute();
 }
