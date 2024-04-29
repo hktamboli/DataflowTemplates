@@ -31,6 +31,7 @@ on [Metadata Annotations](https://github.com/GoogleCloudPlatform/DataflowTemplat
 * **useStorageWriteApiAtLeastOnce** : This parameter takes effect only if "Use BigQuery Storage Write API" is enabled. If enabled the at-least-once semantics will be used for Storage Write API, otherwise exactly-once semantics will be used. Defaults to: false.
 * **javascriptDocumentTransformGcsPath** : The Cloud Storage path pattern for the JavaScript code containing your user-defined functions. (Example: gs://your-bucket/your-transforms/*.js).
 * **javascriptDocumentTransformFunctionName** : The function name should only contain letters, digits and underscores. Example: 'transform' or 'transform_udf1'. (Example: transform).
+* **bigQuerySchemaPath** : The Cloud Storage path for the BigQuery JSON schema.  (Example: gs://your-bucket/your-schema.json).
 
 
 
@@ -121,6 +122,7 @@ export USE_STORAGE_WRITE_API=false
 export USE_STORAGE_WRITE_API_AT_LEAST_ONCE=false
 export JAVASCRIPT_DOCUMENT_TRANSFORM_GCS_PATH=<javascriptDocumentTransformGcsPath>
 export JAVASCRIPT_DOCUMENT_TRANSFORM_FUNCTION_NAME=<javascriptDocumentTransformFunctionName>
+export BIG_QUERY_SCHEMA_PATH=<bigQuerySchemaPath>
 
 gcloud dataflow flex-template run "mongodb-to-bigquery-job" \
   --project "$PROJECT" \
@@ -134,6 +136,7 @@ gcloud dataflow flex-template run "mongodb-to-bigquery-job" \
   --parameters "useStorageWriteApi=$USE_STORAGE_WRITE_API" \
   --parameters "useStorageWriteApiAtLeastOnce=$USE_STORAGE_WRITE_API_AT_LEAST_ONCE" \
   --parameters "outputTableSpec=$OUTPUT_TABLE_SPEC" \
+  --parameters "bigQuerySchemaPath=$BIG_QUERY_SCHEMA_PATH" \
   --parameters "javascriptDocumentTransformGcsPath=$JAVASCRIPT_DOCUMENT_TRANSFORM_GCS_PATH" \
   --parameters "javascriptDocumentTransformFunctionName=$JAVASCRIPT_DOCUMENT_TRANSFORM_FUNCTION_NAME"
 ```
@@ -229,6 +232,7 @@ resource "google_dataflow_flex_template_job" "mongodb_to_bigquery" {
     # useStorageWriteApiAtLeastOnce = "false"
     # javascriptDocumentTransformGcsPath = "gs://your-bucket/your-transforms/*.js"
     # javascriptDocumentTransformFunctionName = "transform"
+    # bigQuerySchemaPath = "gs://your-bucket/your-schema.json"
   }
 }
 ```
