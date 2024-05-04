@@ -57,10 +57,10 @@ import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Splitter;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Throwables;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -675,17 +675,17 @@ public class CsvConverters {
    */
   public static class StringToGenericRecordFn extends DoFn<String, GenericRecord> {
     private String serializedSchema;
-    private final String delimiter;
+    private CSVFormat csvFormat = CSVFormat.DEFAULT;
     private Schema schema;
     private boolean logDetailedCsvConversionErrors = false;
 
     public StringToGenericRecordFn(String schemaLocation, String delimiter) {
       withSchemaLocation(schemaLocation);
-      this.delimiter = delimiter;
+      this.csvFormat = CSVFormat.DEFAULT.builder().setDelimiter(delimiter).build();
     }
 
     public StringToGenericRecordFn(String delimiter) {
-      this.delimiter = delimiter;
+      this.csvFormat = CSVFormat.DEFAULT.builder().setDelimiter(delimiter).build();
     }
 
     public StringToGenericRecordFn withSchemaLocation(String schemaLocation) {
@@ -712,8 +712,7 @@ public class CsvConverters {
     @ProcessElement
     public void processElement(ProcessContext context) throws IllegalArgumentException {
       GenericRecord genericRecord = new GenericData.Record(schema);
-      String[] rowValue =
-          Splitter.on(delimiter).splitToList(context.element()).toArray(new String[0]);
+      String[] rowValue = parseString(context.element(), csvFormat);
       List<Schema.Field> fields = schema.getFields();
 
       try {
@@ -748,6 +747,16 @@ public class CsvConverters {
             "Number of fields in the Avro schema and number of Csv headers do not match.");
       }
       context.output(genericRecord);
+    }
+
+    private static String[] parseString(String element, CSVFormat format) {
+      try (CSVParser parser = CSVParser.parse(element, format)) {
+        List<CSVRecord> records = parser.getRecords();
+        CSVRecord record = records.get(0);
+        return record.values();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     private void populateGenericRecord(
