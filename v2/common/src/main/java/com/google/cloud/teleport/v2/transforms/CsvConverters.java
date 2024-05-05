@@ -641,7 +641,7 @@ public class CsvConverters {
       this.linesTag = linesTag;
       this.csvFormat = getCsvFormat(csvFormat, delimiter);
       this.fileEncoding = fileEncoding;
-      this.delimiter = String.valueOf(this.csvFormat.getDelimiter());
+      this.delimiter = this.csvFormat.getDelimiterString();
     }
 
     @ProcessElement
@@ -651,7 +651,7 @@ public class CsvConverters {
       try {
         BufferedReader bufferedReader =
             new BufferedReader(
-                Channels.newReader(filePath.open(), Charset.forName(this.fileEncoding).name()));
+                Channels.newReader(filePath.open(), Charset.forName(this.fileEncoding)));
         CSVParser parser =
             CSVParser.parse(bufferedReader, this.csvFormat.withFirstRecordAsHeader());
         outputReceiver
@@ -712,7 +712,7 @@ public class CsvConverters {
     @ProcessElement
     public void processElement(ProcessContext context) throws IllegalArgumentException {
       GenericRecord genericRecord = new GenericData.Record(schema);
-      String[] rowValue = parseString(context.element(), csvFormat);
+      CSVRecord csvRecord = parseString(context.element(), csvFormat);
       List<Schema.Field> fields = schema.getFields();
 
       try {
@@ -726,19 +726,18 @@ public class CsvConverters {
             String dataType2 = field.schema().getTypes().get(1).getType().getName().toLowerCase();
 
             // Check if Csv data is null.
-            if ((dataType1.equals("null") || dataType2.equals("null"))
-                && rowValue[index].length() == 0) {
+            if ((dataType1.equals("null") || dataType2.equals("null")) && csvRecord.get(index).isEmpty()) {
               genericRecord.put(field.name(), null);
             } else {
               // Add valid data type to generic record.
               if (dataType1.equals("null")) {
-                populateGenericRecord(genericRecord, dataType2, rowValue[index], field.name());
+                populateGenericRecord(genericRecord, dataType2, csvRecord.get(index), field.name());
               } else {
-                populateGenericRecord(genericRecord, dataType1, rowValue[index], field.name());
+                populateGenericRecord(genericRecord, dataType1, csvRecord.get(index), field.name());
               }
             }
           } else {
-            populateGenericRecord(genericRecord, fieldType, rowValue[index], field.name());
+            populateGenericRecord(genericRecord, fieldType, csvRecord.get(index), field.name());
           }
         }
       } catch (ArrayIndexOutOfBoundsException e) {
@@ -749,12 +748,12 @@ public class CsvConverters {
       context.output(genericRecord);
     }
 
-    private static String[] parseString(String element, CSVFormat format) {
+    private static CSVRecord parseString(String element, CSVFormat format) {
       try (CSVParser parser = CSVParser.parse(element, format)) {
         List<CSVRecord> records = parser.getRecords();
-        CSVRecord record = records.get(0);
-        return record.values();
+        return records.get(0);
       } catch (IOException e) {
+        LOG.error(e.getMessage());
         throw new RuntimeException(e);
       }
     }

@@ -611,7 +611,7 @@ public class CsvConvertersTest {
 
   /**
    * Tests if {@link CsvConverters.StringToGenericRecordFn} creates a proper GenericRecord with
-   * RFC4180 CSV record.
+   * RFC4180 Csv record.
    */
   @Test
   public void testStringToGenericRecordWithRFC4180Csv() {
