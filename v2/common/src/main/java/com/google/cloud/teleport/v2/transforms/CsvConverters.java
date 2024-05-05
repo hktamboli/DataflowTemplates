@@ -726,7 +726,8 @@ public class CsvConverters {
             String dataType2 = field.schema().getTypes().get(1).getType().getName().toLowerCase();
 
             // Check if Csv data is null.
-            if ((dataType1.equals("null") || dataType2.equals("null")) && csvRecord.get(index).isEmpty()) {
+            if ((dataType1.equals("null") || dataType2.equals("null"))
+                && csvRecord.get(index).isEmpty()) {
               genericRecord.put(field.name(), null);
             } else {
               // Add valid data type to generic record.
