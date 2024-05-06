@@ -1,1 +1,2 @@
 com.google.cloud.teleport.v2.neo4j.model.validation.WriteModeValidator
+com.google.cloud.teleport.v2.neo4j.model.validation.NodeKeyValidator
