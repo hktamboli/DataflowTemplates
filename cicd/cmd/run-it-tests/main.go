@@ -65,6 +65,9 @@ func main() {
 		flags.StageBucket(),
 		flags.HostIp(),
 		flags.PrivateConnectivity(),
+		flags.CloudProxyHost(),
+		flags.CloudProxyPort(),
+		flags.CloudProxyPassword(),
 		flags.FailureMode(),
 		flags.RetryFailures())
 	if err != nil {

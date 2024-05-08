@@ -65,6 +65,18 @@
             <version>${dataflow-api.version}</version>
         </dependency>
 
+        <!-- JDBC dependencies for CloudSQL -->
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-it-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>${mysql-connector-java.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Google Cloud -->
         <dependency>
             <groupId>com.google.cloud</groupId>
