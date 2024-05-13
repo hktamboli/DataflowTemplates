@@ -121,8 +121,12 @@ class PropertyMappingListener implements MappingListener {
 }
 
 /**
- * This listener groups all properties together under the same key constraint Because of the legacy
- * spec ambiguity, there as many created constraints as node target labels.
+ * SingleNodeKeyConstraintListener groups mapping elements into a single key constraint definition (per label).
+ * For instance, let us assume the spec defines a node target with 2 labels ("L1" and "L2").
+ * That target defines a key mapping as an array of 3 strings (for properties "p1", "p2" and "p3").
+ * This listener will generate 2 constraint definitions:<br/>
+ *  - one for label "L1" on properties "p1", "p2" and "p3"<br/>
+ *  - one for label "L2" on properties "p1", "p2" and "p3"<br/>
  */
 class SingleNodeKeyConstraintListener implements MappingListener {
   private final String targetName;
@@ -186,7 +190,12 @@ class SingleNodeKeyConstraintListener implements MappingListener {
   }
 }
 
-/** This listener groups all properties together under the same key constraint. */
+/**
+ * SingleRelationshipKeyConstraintListener groups mapping elements into a single key constraint definition.
+ * For instance, let us assume the spec defines a relationship target with type "T".
+ * That target defines a key mapping as an array of 3 strings (for properties "p1", "p2" and "p3").
+ * This listener will generate 1 constraint definition for type "T" on properties "p1", "p2" and "p3".
+ */
 class SingleRelationshipKeyConstraintListener implements MappingListener {
   private final String targetName;
   private final String type;
