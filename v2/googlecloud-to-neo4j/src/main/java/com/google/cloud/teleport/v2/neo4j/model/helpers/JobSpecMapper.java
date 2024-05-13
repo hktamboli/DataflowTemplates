@@ -44,7 +44,7 @@ public class JobSpecMapper {
       return parseLegacyJobSpec(options, spec);
     }
     try {
-      // TODO: read query + input file pattern + runtime tokens for new spec
+      // TODO: interpolate runtime tokens into new spec elements
       return ImportSpecificationDeserializer.deserialize(new StringReader(json));
     } catch (SpecificationException e) {
       throw validationFailure(e);

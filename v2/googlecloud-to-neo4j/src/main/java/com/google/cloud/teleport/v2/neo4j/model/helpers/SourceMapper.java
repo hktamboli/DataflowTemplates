@@ -69,11 +69,7 @@ public class SourceMapper {
 
   private static BigQuerySource parseBigQuerySource(JSONObject rawSource, OptionsParams options) {
     var sourceName = getStringOrDefault(rawSource, "name", DEFAULT_SOURCE_NAME);
-    var sql = rawSource.getString("query");
-    if (StringUtils.isNotEmpty(options.getReadQuery())) {
-      sql = options.getReadQuery();
-    }
-    sql = ModelUtils.replaceVariableTokens(sql, options.getTokenMap());
+    var sql = ModelUtils.replaceVariableTokens(rawSource.getString("query"), options.getTokenMap());
     return new BigQuerySource(sourceName, sql);
   }
 
@@ -88,9 +84,6 @@ public class SourceMapper {
     var separator = getStringOrNull(rawSource, "separator");
     if (rawSource.has("uri") || rawSource.has("url")) {
       var url = rawSource.has("uri") ? rawSource.getString("uri") : rawSource.getString("url");
-      if (StringUtils.isNotEmpty(options.getInputFilePattern())) {
-        url = options.getInputFilePattern();
-      }
       url = ModelUtils.replaceVariableTokens(url, options.getTokenMap());
       return new ExternalTextSource(sourceName, List.of(url), header, format, delimiter, separator);
     }

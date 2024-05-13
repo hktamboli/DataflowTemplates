@@ -29,7 +29,6 @@ import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
-import org.apache.commons.lang3.StringUtils;
 import org.neo4j.importer.v1.sources.BigQuerySource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +86,7 @@ public class BigQueryImpl implements Provider {
    */
   public SqlQuerySpec getMetadataQueryBeamSpec(BigQuerySource source) {
 
-    String baseQuery = getBaseQuery(source);
+    String baseQuery = source.getQuery();
 
     ////////////////////////////
     // Dry run won't return schema so use regular query
@@ -111,7 +110,7 @@ public class BigQueryImpl implements Provider {
     return new SqlQuerySpecBuilder()
         .castDescription("Cast to BeamRow " + source.getName())
         .readDescription("Read from BQ " + source.getName())
-        .sql(getBaseQuery(source))
+        .sql(source.getQuery())
         .build();
   }
 
@@ -127,7 +126,7 @@ public class BigQueryImpl implements Provider {
     var endNodeTarget = spec.getEndNodeTarget();
     String sql =
         ModelUtils.getTargetSql(
-            target, startNodeTarget, endNodeTarget, sourceFields, true, getBaseQuery(source));
+            target, startNodeTarget, endNodeTarget, sourceFields, true, source.getQuery());
     return new SqlQuerySpecBuilder()
         .readDescription(
             targetSequence.getSequenceNumber(target) + ": Read from BQ " + target.getName())
@@ -135,14 +134,5 @@ public class BigQueryImpl implements Provider {
             targetSequence.getSequenceNumber(target) + ": Cast to BeamRow " + target.getName())
         .sql(sql)
         .build();
-  }
-
-  private String getBaseQuery(BigQuerySource source) {
-    String baseSql = source.getQuery();
-    if (StringUtils.isNotEmpty(optionsParams.getReadQuery())) {
-      LOG.info("Overriding source query with run-time option");
-      baseSql = optionsParams.getReadQuery();
-    }
-    return baseSql;
   }
 }

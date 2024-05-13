@@ -76,23 +76,6 @@ public class SourceMapperTest {
   }
 
   @Test
-  public void parses_BigQuery_source_with_replaced_query() {
-    var json =
-        new JSONObject(
-            Map.of(
-                "type", "bigquery",
-                "query", "replaced"));
-
-    OptionsParams options = new OptionsParams();
-    options.overlayTokens(
-        "{\"table\": \"placeholder-table\", \"readQuery\": \"SELECT name FROM $table\"}");
-
-    Source source = SourceMapper.parse(json, options);
-
-    assertThat(source).isEqualTo(new BigQuerySource("", "SELECT name FROM placeholder-table"));
-  }
-
-  @Test
   public void parses_minimal_external_text_source() {
     var json =
         new JSONObject(
