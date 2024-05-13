@@ -95,7 +95,7 @@ public class HttpUtils {
         return true;
       default:
         throw new RuntimeException(
-                String.format("Unsupported HTTP method: %s, please specify GET or POST", method));
+            String.format("Unsupported HTTP method: %s, please specify GET or POST", method));
     }
   }
 

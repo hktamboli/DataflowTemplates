@@ -46,7 +46,8 @@ public class PreloadHttpAction implements PreloadAction {
       throw new RuntimeException("Options 'uri' not provided for preload http_post action.");
     }
     try (CloseableHttpResponse response =
-        HttpUtils.getHttpResponse(HttpUtils.isPostRequest(action.getMethod()), uri, action.getHeaders())) {
+        HttpUtils.getHttpResponse(
+            HttpUtils.isPostRequest(action.getMethod()), uri, action.getHeaders())) {
       LOG.info("Request returned: {}", HttpUtils.getResponseContent(response));
 
     } catch (Exception e) {
@@ -56,5 +57,4 @@ public class PreloadHttpAction implements PreloadAction {
 
     return msgs;
   }
-
 }
