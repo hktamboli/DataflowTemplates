@@ -31,6 +31,7 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
+import org.neo4j.importer.v1.actions.HttpMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,8 +87,20 @@ public class HttpUtils {
     }
   }
 
+  public static boolean isPostRequest(HttpMethod method) {
+    switch (method) {
+      case GET:
+        return false;
+      case POST:
+        return true;
+      default:
+        throw new RuntimeException(
+                String.format("Unsupported HTTP method: %s, please specify GET or POST", method));
+    }
+  }
+
   private static List<NameValuePair> getNvPairs(Map<String, String> options) {
-    Iterator optionsIterator = options.keySet().iterator();
+    Iterator<String> optionsIterator = options.keySet().iterator();
     List<NameValuePair> nvps = new ArrayList<>();
     while (optionsIterator.hasNext()) {
       String key = String.valueOf(optionsIterator.next());

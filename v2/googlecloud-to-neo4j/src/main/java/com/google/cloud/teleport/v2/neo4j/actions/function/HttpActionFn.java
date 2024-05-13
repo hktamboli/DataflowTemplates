@@ -15,7 +15,7 @@
  */
 package com.google.cloud.teleport.v2.neo4j.actions.function;
 
-import static com.google.cloud.teleport.v2.neo4j.actions.preload.PreloadHttpAction.isPostRequest;
+import static com.google.cloud.teleport.v2.neo4j.utils.HttpUtils.isPostRequest;
 
 import com.google.cloud.teleport.v2.neo4j.model.job.ActionContext;
 import com.google.cloud.teleport.v2.neo4j.utils.HttpUtils;
