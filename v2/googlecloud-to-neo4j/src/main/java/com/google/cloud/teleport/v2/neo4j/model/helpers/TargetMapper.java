@@ -111,20 +111,18 @@ class TargetMapper {
         continue;
       }
       var edge = target.getJSONObject("edge");
-      var edgeWriteMode = parseWriteMode(edge.getString("mode"));
-      var nodeWriteMode = asNodeWriteMode(parseNodeMatchMode(edge, edgeWriteMode));
       var mappings = edge.getJSONObject("mappings");
       // note: indexAllProperties is ignored here since embedded node definitions
       // only declare key properties. Key properties are backed by key constraints, and these
       // constraints are always backed by an index.
       if (mappings.has("source")
           && findNodeTarget(mappings.getJSONObject("source"), nodes).isEmpty()) {
-        var sourceNode = parseEdgeNode(edge, "source", nodeWriteMode);
+        var sourceNode = parseEdgeNode(edge, "source", WriteMode.MERGE);
         nodes.add(sourceNode);
       }
       if (mappings.has("target")
           && findNodeTarget(mappings.getJSONObject("target"), nodes).isEmpty()) {
-        var targetNode = parseEdgeNode(edge, "target", nodeWriteMode);
+        var targetNode = parseEdgeNode(edge, "target", WriteMode.MERGE);
         nodes.add(targetNode);
       }
     }
@@ -171,7 +169,7 @@ class TargetMapper {
       List<NodeTarget> nodes,
       boolean indexAllProperties) {
     var writeMode = parseWriteMode(edge.getString("mode"));
-    var nodeMatchMode = parseNodeMatchMode(edge, writeMode);
+    var nodeMatchMode = edgeNodeMatchMode(edge);
     var mappings = edge.getJSONObject("mappings");
     var targetName = normalizeName(index, edge.getString("name"), ArtifactType.edge);
     var relationshipType = parseType(mappings);
@@ -282,36 +280,15 @@ class TargetMapper {
     }
   }
 
-  private static WriteMode asNodeWriteMode(NodeMatchMode matchMode) {
-    switch (matchMode) {
-      case MATCH:
-        return WriteMode.CREATE;
-      case MERGE:
-        return WriteMode.MERGE;
-    }
-    throw new IllegalArgumentException(
-        String.format(
-            "expected node match mode to be either match or merge, but got: %s", matchMode));
-  }
-
-  private static NodeMatchMode parseNodeMatchMode(JSONObject edge, WriteMode writeMode) {
+  private static NodeMatchMode edgeNodeMatchMode(JSONObject edge) {
     if (!edge.has("edge_nodes_match_mode")) {
-      return defaultNodeMatchModeFor(writeMode);
+      return NodeMatchMode.MATCH;
     }
-    return NodeMatchMode.valueOf(edge.getString("edge_nodes_match_mode").toUpperCase(Locale.ROOT));
-  }
-
-  private static NodeMatchMode defaultNodeMatchModeFor(WriteMode writeMode) {
-    switch (writeMode) {
-      case CREATE:
-        return NodeMatchMode.MERGE;
-      case MERGE:
-        return NodeMatchMode.MATCH;
-      default:
-        throw new IllegalArgumentException(
-            String.format(
-                "Cannot determine default node match mode: unsupported write mode %s", writeMode));
+    String matchMode = edge.getString("edge_nodes_match_mode").toUpperCase(Locale.ROOT);
+    if (matchMode.equals("CREATE")) {
+      return NodeMatchMode.MERGE;
     }
+    return NodeMatchMode.valueOf(matchMode);
   }
 
   private static int findLastIndexOfMatch(Pattern pattern, String input) {

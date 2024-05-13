@@ -337,7 +337,7 @@ public class TargetMapperTest {
                     null,
                     null,
                     WriteMode.CREATE,
-                    NodeMatchMode.MERGE,
+                    NodeMatchMode.MATCH,
                     null,
                     null,
                     null,
@@ -606,7 +606,7 @@ public class TargetMapperTest {
                     "a-target-source",
                     "a-source",
                     null,
-                    WriteMode.CREATE,
+                    WriteMode.MERGE,
                     null,
                     List.of("Placeholder1"),
                     List.of(new PropertyMapping("prop1", "prop1", null)),
@@ -630,7 +630,7 @@ public class TargetMapperTest {
                     "a-target-target",
                     "a-source",
                     null,
-                    WriteMode.CREATE,
+                    WriteMode.MERGE,
                     null,
                     List.of("Placeholder2"),
                     List.of(new PropertyMapping("prop2", "prop2", null)),
@@ -958,7 +958,7 @@ public class TargetMapperTest {
             new JSONArray(List.of(target)), new OptionsParams(), new JobSpecIndex(), false);
 
     assertThat(targets.getRelationships()).hasSize(1);
-    assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MERGE);
+    assertThat(targets.getRelationships().get(0).getNodeMatchMode()).isEqualTo(NodeMatchMode.MATCH);
   }
 
   @Test
