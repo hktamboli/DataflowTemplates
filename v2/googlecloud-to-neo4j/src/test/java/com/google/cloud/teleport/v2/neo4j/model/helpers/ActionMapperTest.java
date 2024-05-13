@@ -51,7 +51,7 @@ public class ActionMapperTest {
     assertThat(actions).isEqualTo(List.of(expectedAction));
   }
 
-  @Test // TODO: test stage mapping
+  @Test
   public void parses_HTTP_GET_action() {
     var json =
         new JSONArray(
@@ -99,7 +99,7 @@ public class ActionMapperTest {
     assertThat(actions).isEqualTo(List.of(expectedAction));
   }
 
-  @Test // TODO: test stage mapping
+  @Test
   public void parses_HTTP_POST_action() {
     var json =
         new JSONArray(
@@ -156,7 +156,7 @@ public class ActionMapperTest {
     assertThat(actions).isEqualTo(List.of(expectedAction));
   }
 
-  @Test // TODO: test stage mapping
+  @Test
   public void parses_BigQuery_action() {
     var json =
         new JSONArray(
@@ -210,7 +210,7 @@ public class ActionMapperTest {
     assertThat(actions).isEqualTo(List.of(expectedAction));
   }
 
-  @Test // TODO: test stage mapping
+  @Test
   public void parses_Cypher_action() {
     var json =
         new JSONArray(
