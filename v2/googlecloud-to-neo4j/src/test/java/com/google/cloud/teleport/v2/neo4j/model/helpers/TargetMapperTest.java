@@ -1069,7 +1069,8 @@ public class TargetMapperTest {
 
     assertThat(targets.getNodes()).hasSize(1);
     var target = targets.getNodes().iterator().next();
-    assertThat(target.getDependencies()).isEqualTo(List.of("edge-target-1", "edge-target-2"));
+    assertThat(target.getDependencies())
+        .containsExactlyElementsIn(List.of("edge-target-1", "edge-target-2"));
   }
 
   @Test
@@ -1117,7 +1118,8 @@ public class TargetMapperTest {
 
     assertThat(targets.getRelationships()).hasSize(1);
     var target = targets.getRelationships().iterator().next();
-    assertThat(target.getDependencies()).isEqualTo(List.of("node-target-1", "node-target-2"));
+    assertThat(target.getDependencies())
+        .containsExactlyElementsIn(List.of("node-target-1", "node-target-2"));
   }
 
   @Test
@@ -1164,7 +1166,8 @@ public class TargetMapperTest {
 
     assertThat(targets.getCustomQueries()).hasSize(1);
     var target = targets.getCustomQueries().iterator().next();
-    assertThat(target.getDependencies()).isEqualTo(List.of("node-target-1", "node-target-2"));
+    assertThat(target.getDependencies())
+        .containsExactlyElementsIn(List.of("node-target-1", "node-target-2"));
   }
 
   private static JSONObject jsonTargetOfType(String type) {

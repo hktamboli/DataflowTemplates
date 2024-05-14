@@ -24,8 +24,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.Stack;
 import org.neo4j.importer.v1.actions.ActionStage;
 
 class JobSpecIndex {
@@ -35,14 +36,11 @@ class JobSpecIndex {
   private final Set<String> customQueryTargets = new LinkedHashSet<>();
   private final Map<String, ActionStage> actionStages = new HashMap<>();
 
-  private final Map<String, Supplier<List<String>>> dependencyGraph =
-      new LinkedHashMap<>(); // lazy map of dependencies
-
-  private final Set<String> visitedDependencies = new HashSet<>();
+  private final Map<String, Dependency> dependencyGraph = new LinkedHashMap<>();
 
   public void trackNode(String name, String executeAfter, String executeAfterName) {
     nodeTargets.add(name);
-    if (executeAfter == null) {
+    if (executeAfter.isEmpty()) {
       return;
     }
     if (!dependsOnAction(executeAfter)) {
@@ -69,7 +67,7 @@ class JobSpecIndex {
 
   public void trackEdge(String name, String executeAfter, String executeAfterName) {
     edgeTargets.add(name);
-    if (executeAfter == null) {
+    if (executeAfter.isEmpty()) {
       return;
     }
     if (!dependsOnAction(executeAfter)) {
@@ -96,7 +94,7 @@ class JobSpecIndex {
 
   public void trackCustomQuery(String name, String executeAfter, String executeAfterName) {
     customQueryTargets.add(name);
-    if (executeAfter == null) {
+    if (executeAfter.isEmpty()) {
       return;
     }
     if (!dependsOnAction(executeAfter)) {
@@ -122,7 +120,7 @@ class JobSpecIndex {
   }
 
   public void trackAction(String name, String executeAfter) {
-    if (executeAfter == null) {
+    if (executeAfter.isEmpty()) {
       return;
     }
     var previousStage = actionStages.get(name);
@@ -164,10 +162,20 @@ class JobSpecIndex {
   }
 
   public List<String> getDependencies(String name) {
-    // note: this is not thread-safe at all
-    visitedDependencies.clear();
-    visitedDependencies.add(name);
-    return readDependencies(name);
+    var result = new ArrayList<String>();
+    var visited = new HashSet<String>();
+    visited.add(name);
+    var stack = new Stack<String>();
+    stack.addAll(directDependenciesOf(name));
+    while (!stack.isEmpty()) {
+      var dependency = stack.pop();
+      if (!visited.contains(dependency)) {
+        result.add(dependency);
+        visited.add(dependency);
+        stack.addAll(directDependenciesOf(dependency));
+      }
+    }
+    return result;
   }
 
   public ActionStage getActionStage(String name) {
@@ -175,70 +183,47 @@ class JobSpecIndex {
   }
 
   private void registerDependency(String name, String executeAfter, String executeAfterName) {
-    dependencyGraph.put(name, () -> resolveDependencies(executeAfter, executeAfterName));
-  }
-
-  private List<String> resolveDependencies(String executeAfter, String executeAfterName) {
-    var result = new LinkedHashSet<String>(0);
-    switch (executeAfter.toLowerCase(Locale.ROOT)) {
-      case "nodes":
-        result.addAll(resolveAll(minus(nodeTargets, visitedDependencies)));
-        break;
-      case "edges":
-        result.addAll(resolveAll(minus(edgeTargets, visitedDependencies)));
-        break;
-      case "custom_queries":
-        result.addAll(resolveAll(minus(customQueryTargets, visitedDependencies)));
-        break;
-      case "node":
-      case "edge":
-      case "custom_query":
-      case "action":
-        // this is here to "break" cycles
-        // the import-spec default validators will reject cycles later
-        if (visitedDependencies.contains(executeAfterName)) {
-          break;
-        }
-        result.add(executeAfterName);
-        result.addAll(resolve(executeAfterName));
+    String dependencyType = executeAfter.toLowerCase(Locale.ROOT);
+    if (!executeAfterName.isEmpty()) {
+      dependencyGraph.put(name, new NamedDependency(dependencyType, executeAfterName));
+      return;
     }
-    return new ArrayList<>(result);
+    dependencyGraph.put(name, new DependencyGroup(dependencyType));
   }
 
-  private List<String> resolveAll(Collection<String> dependencies) {
-    visitedDependencies.addAll(dependencies);
-    var result = new LinkedHashSet<>(dependencies);
-    dependencies.forEach(dependency -> result.addAll(resolve(dependency)));
-    return new ArrayList<>(result);
+  private Collection<String> directDependenciesOf(String name) {
+    if (!dependencyGraph.containsKey(name)) {
+      return implicitDirectDependenciesOf(name);
+    }
+    var dependency = dependencyGraph.get(name);
+    if (dependency instanceof NamedDependency) {
+      String dependencyName = ((NamedDependency) dependency).getName();
+      return List.of(dependencyName);
+    }
+    var group = (DependencyGroup) dependency;
+    String groupType = group.getType();
+    switch (groupType) {
+      case "nodes":
+        return nodeTargets;
+      case "edges":
+        return edgeTargets;
+      case "custom_queries":
+        return customQueryTargets;
+      default:
+        throw new RuntimeException(
+            String.format("Unknown dependency (execute_after) type: %s", groupType));
+    }
   }
 
-  private List<String> resolve(String name) {
-    return resolveAll(readDependencies(name));
-  }
-
-  private List<String> readDependencies(String name) {
-    return dependencyGraph
-        .getOrDefault(
-            name, () -> resolveAll(minus(implicitDependenciesOf(name), visitedDependencies)))
-        .get();
-  }
-
-  private List<String> implicitDependenciesOf(String name) {
-    if (edgeTargets.contains(name)) {
-      return new ArrayList<>(nodeTargets);
+  private List<String> implicitDirectDependenciesOf(String name) {
+    var result = new LinkedHashSet<String>();
+    if (edgeTargets.contains(name) || customQueryTargets.contains(name)) {
+      result.addAll(nodeTargets);
     }
     if (customQueryTargets.contains(name)) {
-      var result = new ArrayList<>(nodeTargets);
       result.addAll(edgeTargets);
-      return result;
     }
-    return List.of();
-  }
-
-  private static <T> Collection<T> minus(Collection<T> left, Collection<T> right) {
-    var result = new LinkedHashSet<>(left);
-    result.removeAll(right);
-    return result;
+    return new ArrayList<>(result);
   }
 
   private static void throwIfDependedUpon(
@@ -264,5 +249,75 @@ class JobSpecIndex {
 
   private static boolean dependsOnAction(String executeAfter) {
     return executeAfter.toLowerCase(Locale.ROOT).equals("action");
+  }
+}
+
+interface Dependency {}
+
+class NamedDependency implements Dependency {
+  private final String type;
+  private final String name;
+
+  public NamedDependency(String type, String name) {
+    this.type = type;
+    this.name = name;
+  }
+
+  public String getType() {
+    return type;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+
+    if (!(o instanceof NamedDependency)) {
+      return false;
+    }
+
+    NamedDependency that = (NamedDependency) o;
+    return Objects.equals(type, that.type) && Objects.equals(name, that.name);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(type, name);
+  }
+}
+
+class DependencyGroup implements Dependency {
+  private final String type;
+
+  public DependencyGroup(String type) {
+    this.type = type;
+  }
+
+  public String getType() {
+    return type;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+
+    if (!(o instanceof DependencyGroup)) {
+      return false;
+    }
+
+    DependencyGroup that = (DependencyGroup) o;
+    return Objects.equals(type, that.type);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(type);
   }
 }

@@ -28,7 +28,7 @@ public class JobSpecIndexTest {
   @Test
   public void resolves_node_named_explicit_dependency() {
     index.trackNode("a-node", "edge", "an-edge");
-    index.trackEdge("an-edge", null, null);
+    index.trackEdge("an-edge", "", "");
 
     var dependencies = index.getDependencies("a-node");
 
@@ -47,9 +47,9 @@ public class JobSpecIndexTest {
 
   @Test
   public void resolves_node_explicit_dependency_group() {
-    index.trackCustomQuery("a-query-1", null, null);
-    index.trackNode("a-node", "custom_queries", null);
-    index.trackCustomQuery("a-query-2", null, null);
+    index.trackCustomQuery("a-query-1", "", "");
+    index.trackNode("a-node", "custom_queries", "");
+    index.trackCustomQuery("a-query-2", "", "");
 
     var dependencies = index.getDependencies("a-node");
 
@@ -58,10 +58,10 @@ public class JobSpecIndexTest {
 
   @Test
   public void transitively_resolves_node_dependency_group() {
-    index.trackCustomQuery("a-query", "edges", null);
-    index.trackEdge("an-edge-1", null, null);
+    index.trackCustomQuery("a-query", "edges", "");
+    index.trackEdge("an-edge-1", "", "");
     index.trackNode("a-node", "custom_query", "a-query");
-    index.trackEdge("an-edge-2", null, null);
+    index.trackEdge("an-edge-2", "", "");
 
     var dependencies = index.getDependencies("a-node");
 
@@ -71,9 +71,9 @@ public class JobSpecIndexTest {
 
   @Test
   public void resolves_node_peer_dependencies_excluding_itself() {
-    index.trackNode("a-node-1", null, null);
-    index.trackNode("a-node-2", "nodes", null);
-    index.trackNode("a-node-3", null, null);
+    index.trackNode("a-node-1", "", "");
+    index.trackNode("a-node-2", "nodes", "");
+    index.trackNode("a-node-3", "", "");
 
     var dependencies = index.getDependencies("a-node-2");
 
@@ -82,12 +82,12 @@ public class JobSpecIndexTest {
 
   @Test
   public void transitively_resolves_node_peer_dependencies_excluding_itself() {
-    index.trackCustomQuery("a-query", "edges", null);
-    index.trackNode("a-node-1", null, null);
+    index.trackCustomQuery("a-query", "edges", "");
+    index.trackNode("a-node-1", "", "");
     index.trackNode("a-node-2", "custom_query", "a-query");
-    index.trackNode("a-node-3", null, null);
-    index.trackEdge("an-edge-1", "nodes", null);
-    index.trackEdge("an-edge-2", "custom_queries", null);
+    index.trackNode("a-node-3", "", "");
+    index.trackEdge("an-edge-1", "nodes", "");
+    index.trackEdge("an-edge-2", "custom_queries", "");
 
     var dependencies = index.getDependencies("a-node-2");
 
@@ -107,10 +107,10 @@ public class JobSpecIndexTest {
 
   @Test
   public void resolves_implicit_node_dependencies_of_dependencyless_edge() {
-    index.trackNode("a-node-1", null, null);
-    index.trackNode("a-node-2", null, null);
-    index.trackEdge("an-edge", null, null);
-    index.trackCustomQuery("a-query", null, null);
+    index.trackNode("a-node-1", "", "");
+    index.trackNode("a-node-2", "", "");
+    index.trackEdge("an-edge", "", "");
+    index.trackCustomQuery("a-query", "", "");
 
     var dependencies = index.getDependencies("an-edge");
 
@@ -120,10 +120,10 @@ public class JobSpecIndexTest {
   @Test
   public void transitively_resolves_implicit_node_dependencies_of_dependencyless_edge() {
     index.trackNode("a-node-1", "custom_query", "a-query-1");
-    index.trackNode("a-node-2", null, null);
-    index.trackEdge("an-edge", null, null);
-    index.trackCustomQuery("a-query-1", "custom_queries", null);
-    index.trackCustomQuery("a-query-2", null, null);
+    index.trackNode("a-node-2", "", "");
+    index.trackEdge("an-edge", "", "");
+    index.trackCustomQuery("a-query-1", "custom_queries", "");
+    index.trackCustomQuery("a-query-2", "", "");
 
     var dependencies = index.getDependencies("an-edge");
 
@@ -133,10 +133,10 @@ public class JobSpecIndexTest {
 
   @Test
   public void resolves_implicit_node_and_edge_dependencies_of_dependencyless_query() {
-    index.trackNode("a-node-1", null, null);
-    index.trackNode("a-node-2", null, null);
-    index.trackEdge("an-edge", null, null);
-    index.trackCustomQuery("a-query", null, null);
+    index.trackNode("a-node-1", "", "");
+    index.trackNode("a-node-2", "", "");
+    index.trackEdge("an-edge", "", "");
+    index.trackCustomQuery("a-query", "", "");
 
     var dependencies = index.getDependencies("an-edge");
 
@@ -145,12 +145,12 @@ public class JobSpecIndexTest {
 
   @Test
   public void transitively_resolves_implicit_node_and_edge_dependencies_of_dependencyless_query() {
-    index.trackNode("a-node-1", "custom_queries", null);
-    index.trackNode("a-node-2", null, null);
+    index.trackNode("a-node-1", "custom_queries", "");
+    index.trackNode("a-node-2", "", "");
     index.trackEdge("an-edge", "custom_query", "a-query-3");
-    index.trackCustomQuery("a-query-1", null, null);
-    index.trackCustomQuery("a-query-2", null, null);
-    index.trackCustomQuery("a-query-3", null, null);
+    index.trackCustomQuery("a-query-1", "", "");
+    index.trackCustomQuery("a-query-2", "", "");
+    index.trackCustomQuery("a-query-3", "", "");
 
     var dependencies = index.getDependencies("a-query-1");
 
@@ -161,7 +161,7 @@ public class JobSpecIndexTest {
 
   @Test
   public void resolves_default_action_stage() {
-    index.trackAction("an-action", null);
+    index.trackAction("an-action", "");
 
     var stage = index.getActionStage("an-action");
 
@@ -272,7 +272,7 @@ public class JobSpecIndexTest {
   @Test
   public void resolves_action_stage_from_node_dependency() {
     index.trackNode("a-node", "action", "an-action");
-    index.trackAction("an-action", null);
+    index.trackAction("an-action", "");
 
     var stage = index.getActionStage("an-action");
 
@@ -282,7 +282,7 @@ public class JobSpecIndexTest {
   @Test
   public void resolves_action_stage_from_edge_dependency() {
     index.trackEdge("an-edge", "action", "an-action");
-    index.trackAction("an-action", null);
+    index.trackAction("an-action", "");
 
     var stage = index.getActionStage("an-action");
 
@@ -292,7 +292,7 @@ public class JobSpecIndexTest {
   @Test
   public void resolves_action_stage_from_query_dependency() {
     index.trackCustomQuery("a-query", "action", "an-action");
-    index.trackAction("an-action", null);
+    index.trackAction("an-action", "");
 
     var stage = index.getActionStage("an-action");
 
@@ -302,19 +302,19 @@ public class JobSpecIndexTest {
   @Test
   public void resolves_earliest_action_stage_from_multiple_dependencies() {
     index.trackNode("a-node-1", "action", "an-action-1");
-    index.trackAction("an-action-1", null);
+    index.trackAction("an-action-1", "");
     index.trackEdge("an-edge-1", "action", "an-action-1");
     assertThat(index.getActionStage("an-action-1")).isEqualTo(ActionStage.START);
     index.trackNode("a-node-2", "action", "an-action-2");
-    index.trackAction("an-action-2", null);
+    index.trackAction("an-action-2", "");
     index.trackCustomQuery("a-query-2", "action", "an-action-2");
     assertThat(index.getActionStage("an-action-2")).isEqualTo(ActionStage.START);
     index.trackEdge("an-edge-3", "action", "an-action-3");
-    index.trackAction("an-action-3", null);
+    index.trackAction("an-action-3", "");
     index.trackCustomQuery("a-query-3", "action", "an-action-3");
     assertThat(index.getActionStage("an-action-3")).isEqualTo(ActionStage.START);
     index.trackEdge("an-edge-4", "action", "an-action-4");
-    index.trackAction("an-action-4", null);
+    index.trackAction("an-action-4", "");
     index.trackNode("a-query-4", "action", "an-action-4");
     assertThat(index.getActionStage("an-action-3")).isEqualTo(ActionStage.START);
   }
