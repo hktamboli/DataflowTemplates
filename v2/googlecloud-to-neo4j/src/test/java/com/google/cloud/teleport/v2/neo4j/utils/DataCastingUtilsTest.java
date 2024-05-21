@@ -32,13 +32,6 @@ import static com.google.cloud.teleport.v2.neo4j.utils.DataCastingUtils.mapToStr
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.cloud.teleport.v2.neo4j.model.enums.FragmentType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.PropertyType;
-import com.google.cloud.teleport.v2.neo4j.model.enums.RoleType;
-import com.google.cloud.teleport.v2.neo4j.model.job.FieldNameTuple;
-import com.google.cloud.teleport.v2.neo4j.model.job.Mapping;
-import com.google.cloud.teleport.v2.neo4j.model.job.Target;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Correspondence;
 import java.math.BigDecimal;
@@ -69,6 +62,11 @@ import org.apache.beam.sdk.values.Row;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Test;
+import org.neo4j.importer.v1.targets.NodeTarget;
+import org.neo4j.importer.v1.targets.PropertyMapping;
+import org.neo4j.importer.v1.targets.PropertyType;
+import org.neo4j.importer.v1.targets.Target;
+import org.neo4j.importer.v1.targets.WriteMode;
 
 /** Unit tests for {@link DataCastingUtils}. */
 public class DataCastingUtilsTest {
@@ -456,8 +454,22 @@ public class DataCastingUtilsTest {
             .withFieldValue("hired", true)
             .withFieldValue("hireDate", hireDate)
             .build();
-    Target target = new Target();
-    target.setName("neo4j-target");
+    Target target =
+        new NodeTarget(
+            true,
+            "neo4j-target",
+            "a-source",
+            null,
+            WriteMode.CREATE,
+            null,
+            List.of("Label"),
+            List.of(
+                mapping("id", PropertyType.INTEGER),
+                mapping("name", PropertyType.STRING),
+                mapping("salary", PropertyType.FLOAT),
+                mapping("hired", PropertyType.BOOLEAN),
+                mapping("hireDate", PropertyType.LOCAL_DATETIME)),
+            null);
 
     Map<String, Object> stringObjectMap = DataCastingUtils.rowToNeo4jDataMap(row, target);
     assertThat(stringObjectMap)
@@ -506,24 +518,32 @@ public class DataCastingUtilsTest {
             .withFieldValue("duration", "PT23H59M59S")
             .withFieldValue("bytes", "SGVsbG8gV29ybGQ=")
             .build();
-    Target target = new Target();
-    target.setName("neo4j-target");
-    target.setMappings(
-        ImmutableList.of(
-            mapping("int64", PropertyType.Long),
-            mapping("string", PropertyType.String),
-            mapping("double", PropertyType.Double),
-            mapping("boolean", PropertyType.Boolean),
-            mapping("localdate", PropertyType.Date),
-            mapping("localtime", PropertyType.LocalTime),
-            mapping("localdatetime", PropertyType.LocalDateTime),
-            mapping("offsettime", PropertyType.Time),
-            mapping("zoneddatetime", PropertyType.DateTime),
-            mapping("offsetdatetime", PropertyType.DateTime),
-            mapping("duration", PropertyType.Duration),
-            mapping("bytes", PropertyType.ByteArray)));
+    Target target =
+        new NodeTarget(
+            true,
+            "neo4j-target",
+            "a-source",
+            null,
+            WriteMode.CREATE,
+            null,
+            List.of("Label"),
+            List.of(
+                mapping("int64", PropertyType.INTEGER),
+                mapping("string", PropertyType.STRING),
+                mapping("double", PropertyType.FLOAT),
+                mapping("boolean", PropertyType.BOOLEAN),
+                mapping("localdate", PropertyType.DATE),
+                mapping("localtime", PropertyType.LOCAL_TIME),
+                mapping("localdatetime", PropertyType.LOCAL_DATETIME),
+                mapping("offsettime", PropertyType.ZONED_TIME),
+                mapping("zoneddatetime", PropertyType.ZONED_DATETIME),
+                mapping("offsetdatetime", PropertyType.ZONED_DATETIME),
+                mapping("duration", PropertyType.DURATION),
+                mapping("bytes", PropertyType.BYTE_ARRAY)),
+            null);
 
-    List<Object> convertedList = DataCastingUtils.sourceTextToTargetObjects(row, target);
+    List<Object> convertedList =
+        DataCastingUtils.sourceTextToTargetObjects(row, target, null, null);
     assertThat(convertedList)
         .comparingElementsUsing(Correspondence.from(Objects::deepEquals, "deep equals"))
         .containsExactly(
@@ -541,17 +561,8 @@ public class DataCastingUtilsTest {
             "Hello World".getBytes(StandardCharsets.UTF_8));
   }
 
-  private static Mapping mapping(String field, PropertyType type) {
-    Mapping mapping = new Mapping(FragmentType.node, RoleType.property, tuple(field, field));
-    mapping.setType(type);
-    return mapping;
-  }
-
-  private static FieldNameTuple tuple(String name, String field) {
-    FieldNameTuple tuple = new FieldNameTuple();
-    tuple.setName(name);
-    tuple.setField(field);
-    return tuple;
+  private static PropertyMapping mapping(String field, PropertyType type) {
+    return new PropertyMapping(field, field, type);
   }
 
   private void assertConversion(FieldType type, Object input) {
