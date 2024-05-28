@@ -86,9 +86,7 @@ public class MongoDbToBigQueryOptions {
         order = 1,
         description = "Pub/Sub input topic",
         helpText =
-            "Pub/Sub topic to read the input from, in the format of "
-                + "'projects/your-project-id/topics/your-topic-name'",
-        example = "projects/your-project-id/topics/your-topic-name")
+            "The Pub/Sub input topic to read from, in the format of projects/<PROJECT_ID>/topics/<TOPIC_NAME>.")
     String getInputTopic();
 
     void setInputTopic(String inputTopic);
@@ -109,7 +107,7 @@ public class MongoDbToBigQueryOptions {
 
   /** UDF options. */
   public interface JavascriptDocumentTransformerOptions extends PipelineOptions {
-    @TemplateParameter.GcsReadFile(
+    @TemplateParameter.JavascriptUdfFile(
         order = 1,
         optional = true,
         description = "JavaScript UDF path in Cloud Storage.",
