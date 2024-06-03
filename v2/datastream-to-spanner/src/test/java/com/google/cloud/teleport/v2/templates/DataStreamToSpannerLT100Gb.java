@@ -78,7 +78,10 @@ public class DataStreamToSpannerLT100Gb extends DataStreamToSpannerLTBase {
   @Before
   public void setUpResourceManagers() throws IOException {
     spannerResourceManager =
-        SpannerResourceManager.builder(testName, project, region).maybeUseStaticInstance().build();
+        SpannerResourceManager.builder(testName, project, region)
+            .maybeUseStaticInstance()
+            .setNodeCount(10)
+            .build();
     pubsubResourceManager =
         PubsubResourceManager.builder(testName, project, CREDENTIALS_PROVIDER).build();
 
