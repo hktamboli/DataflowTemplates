@@ -15,7 +15,6 @@
  */
 package com.google.cloud.teleport.v2.templates;
 
-import static java.util.Arrays.stream;
 import static org.apache.beam.it.truthmatchers.PipelineAsserts.assertThatPipeline;
 import static org.apache.beam.it.truthmatchers.PipelineAsserts.assertThatResult;
 
@@ -176,6 +175,9 @@ public class DataStreamToSpannerLT100Gb extends DataStreamToSpannerLTBase {
 
     // Assert Conditions
     assertThatResult(result).meetsConditions();
+
+    result = pipelineOperator.cancelJobAndFinish(createConfig(jobInfo, Duration.ofMinutes(5)));
+    assertThatResult(result).isLaunchFinished();
 
     // export results
     exportMetricsToBigQuery(jobInfo, getMetrics(jobInfo));
