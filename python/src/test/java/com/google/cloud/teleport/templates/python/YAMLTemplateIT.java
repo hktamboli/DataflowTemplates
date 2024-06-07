@@ -111,11 +111,11 @@ public final class YAMLTemplateIT extends TemplateTestBase {
     PipelineLauncher.LaunchConfig.Builder options =
         paramsAdder.apply(
             PipelineLauncher.LaunchConfig.builder(testName, specPath)
+                .addParameter("jinja_variable_flags", "INPUT_PATH_PARAM")
+                .addParameter("INPUT_PATH_PARAM", inputPath)
                 .addParameter(
                     "jinja_variables",
-                    String.format(
-                        "{\"INPUT_PATH_PARAM\": \"%s\", \"OUTPUT_PATH_PARAM\": \"%s\"}",
-                        inputPath, outputPath)));
+                    String.format("{\"OUTPUT_PATH_PARAM\": \"%s\"}", inputPath, outputPath)));
 
     // Act
     PipelineLauncher.LaunchInfo info = launchTemplate(options);
