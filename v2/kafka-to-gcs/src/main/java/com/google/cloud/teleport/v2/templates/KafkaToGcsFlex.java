@@ -23,6 +23,8 @@ import com.google.cloud.teleport.v2.kafka.options.SchemaRegistryOptions;
 import com.google.cloud.teleport.v2.kafka.transforms.KafkaTransform;
 import com.google.cloud.teleport.v2.kafka.utils.KafkaConfig;
 import com.google.cloud.teleport.v2.kafka.utils.KafkaTopicUtils;
+import com.google.cloud.teleport.v2.kafka.values.KafkaAuthenticationMethod;
+import com.google.cloud.teleport.v2.kafka.values.KafkaTemplateParameters;
 import com.google.cloud.teleport.v2.transforms.WriteTransform;
 import java.util.HashMap;
 import java.util.List;
@@ -117,6 +119,29 @@ public class KafkaToGcsFlex {
   }
 
   public static PipelineResult run(KafkaToGcsOptions options) throws UnsupportedOperationException {
+    // Validate the pipeline options for MessageFormat and SchemaFormat.
+    if (options
+            .getMessageFormat()
+            .equals(KafkaTemplateParameters.MessageFormatConstants.AVRO_BINARY_ENCODING)
+        && (options.getBinaryAvroSchemaPath() != null
+            && options.getBinaryAvroSchemaPath().isBlank())) {
+      throw new IllegalArgumentException(
+          "Binary Avro Schema Path cannot be empty for AVRO_BINARY_ENCODING.");
+    } else if (options
+        .getMessageFormat()
+        .equals(KafkaTemplateParameters.MessageFormatConstants.AVRO_CONFLUENT_WIRE_FORMAT)) {
+
+      if ((options.getSchemaRegistryConnectionUrl() != null
+              && options.getSchemaRegistryConnectionUrl().isBlank())
+          && (options.getConfluentAvroSchemaPath() != null
+              && options.getConfluentAvroSchemaPath().isBlank())) {
+        throw new IllegalArgumentException(
+            "Either Schema Registry Connection URL or Confluent Avro Schema Path must be provided for AVRO_CONFLUENT_WIRE_FORMAT.");
+      }
+    } else {
+      throw new IllegalArgumentException(
+          "Unsupported schemaFormat parameter value: " + options.getSchemaFormat());
+    }
 
     // Create the Pipeline
     Pipeline pipeline = Pipeline.create(options);
@@ -143,6 +168,7 @@ public class KafkaToGcsFlex {
         KafkaTransform.readBytesFromKafka(
             bootstrapServes, topicsList, kafkaConfig, options.getEnableCommitOffsets());
     kafkaRecord = pipeline.apply(kafkaTransform);
+
     kafkaRecord.apply(WriteTransform.newBuilder().setOptions(options).build());
     return pipeline.run();
   }
