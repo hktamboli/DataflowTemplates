@@ -93,6 +93,9 @@ public interface KafkaReadOptions extends PipelineOptions {
       name = "kafkaReadAuthenticationMode",
       groupName = "Source",
       enumOptions = {
+        // TODO: Add OAuthBearer once Maven artifacts for https://github.com/googleapis/managedkafka
+        // is available.clear
+
         @TemplateParameter.TemplateEnumOption(KafkaAuthenticationMethod.SASL_PLAIN),
         @TemplateParameter.TemplateEnumOption(KafkaAuthenticationMethod.TLS),
         @TemplateParameter.TemplateEnumOption(KafkaAuthenticationMethod.NONE),
