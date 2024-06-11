@@ -18,6 +18,7 @@ package com.google.cloud.teleport.v2.transforms;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.teleport.v2.coders.FailsafeElementCoder;
 import com.google.cloud.teleport.v2.coders.GenericRecordCoder;
+import com.google.cloud.teleport.v2.kafka.utils.FileAwareSchemaRegistryFactoryFn;
 import com.google.cloud.teleport.v2.utils.BigQueryAvroUtils;
 import com.google.cloud.teleport.v2.utils.BigQueryConstants;
 import com.google.cloud.teleport.v2.values.FailsafeElement;
@@ -27,6 +28,7 @@ import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientExcept
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Map;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.coders.ByteArrayCoder;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -68,6 +70,8 @@ public class AvroDynamicTransform
 
   private String schemaRegistryConnectionUrl;
 
+  private Map<String, Object> schemaRegistryConfig;
+
   private String outputProject;
 
   private String outputDataset;
@@ -88,6 +92,7 @@ public class AvroDynamicTransform
 
   private AvroDynamicTransform(
       String schemaRegistryConnectionUrl,
+      Map<String, Object> schemaRegistryConfig,
       String outputProject,
       String outputDataset,
       String outputTableNamePrefix,
@@ -98,6 +103,7 @@ public class AvroDynamicTransform
       Boolean persistKafkaKey,
       Boolean useAutoSharding) {
     this.schemaRegistryConnectionUrl = schemaRegistryConnectionUrl;
+    this.schemaRegistryConfig = schemaRegistryConfig;
     this.outputProject = outputProject;
     this.outputDataset = outputDataset;
     this.outputTableNamePrefix = outputTableNamePrefix;
@@ -111,6 +117,7 @@ public class AvroDynamicTransform
 
   public static AvroDynamicTransform of(
       String schemaRegistryConnectionUrl,
+      Map<String, Object> schemaRegistryConfig,
       String outputProject,
       String outputDataset,
       String outputTableNamePrefix,
@@ -122,6 +129,7 @@ public class AvroDynamicTransform
       Boolean useAutoSharding) {
     return new AvroDynamicTransform(
         schemaRegistryConnectionUrl,
+        schemaRegistryConfig,
         outputProject,
         outputDataset,
         outputTableNamePrefix,
@@ -164,7 +172,7 @@ public class AvroDynamicTransform
                 "ConvertKafkaRecordsToGenericRecordsWrappedinFailsafeElement",
                 ParDo.of(
                     new KafkaRecordToGenericRecordFailsafeElementFn(
-                        this.schemaRegistryConnectionUrl)))
+                        this.schemaRegistryConnectionUrl, this.schemaRegistryConfig)))
             .setCoder(
                 FailsafeElementCoder.of(
                     KafkaRecordCoder.of(NullableCoder.of(ByteArrayCoder.of()), ByteArrayCoder.of()),
@@ -190,16 +198,21 @@ public class AvroDynamicTransform
     private transient KafkaAvroDeserializer deserializer;
     private transient SchemaRegistryClient schemaRegistryClient;
     private String schemaRegistryConnectionUrl = null;
+    private Map<String, Object> schemaRegistryConfig;
 
-    KafkaRecordToGenericRecordFailsafeElementFn(String schemaRegistryConnectionUrl) {
+    KafkaRecordToGenericRecordFailsafeElementFn(
+        String schemaRegistryConnectionUrl, Map<String, Object> schemaRegistryConfig) {
       this.schemaRegistryConnectionUrl = schemaRegistryConnectionUrl;
+      this.schemaRegistryConfig = schemaRegistryConfig;
     }
 
     @Setup
     public void setup() throws IOException, RestClientException {
+      FileAwareSchemaRegistryFactoryFn processor = new FileAwareSchemaRegistryFactoryFn();
       if (this.schemaRegistryConnectionUrl != null) {
         this.schemaRegistryClient =
-            new CachedSchemaRegistryClient(this.schemaRegistryConnectionUrl, 1000);
+            new CachedSchemaRegistryClient(
+                this.schemaRegistryConnectionUrl, 1000, processor.apply(schemaRegistryConfig));
         this.deserializer = new KafkaAvroDeserializer(this.schemaRegistryClient);
       } else {
         throw new IllegalArgumentException(

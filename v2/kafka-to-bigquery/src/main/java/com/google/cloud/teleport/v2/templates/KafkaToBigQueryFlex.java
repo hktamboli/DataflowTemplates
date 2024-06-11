@@ -306,6 +306,7 @@ public class KafkaToBigQueryFlex {
               kafkaRecords.apply(
                   AvroDynamicTransform.of(
                       options.getSchemaRegistryConnectionUrl(),
+                      KafkaConfig.fromSchemaRegistryOptions(options),
                       options.getOutputProject(),
                       options.getOutputDataset(),
                       options.getBqTableNamePrefix(),
