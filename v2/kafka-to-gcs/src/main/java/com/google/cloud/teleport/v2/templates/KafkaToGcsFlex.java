@@ -118,30 +118,6 @@ public class KafkaToGcsFlex {
   }
 
   public static PipelineResult run(KafkaToGcsOptions options) throws UnsupportedOperationException {
-    // Validate the pipeline options for MessageFormat and SchemaFormat.
-    if (options
-            .getMessageFormat()
-            .equals(KafkaTemplateParameters.MessageFormatConstants.AVRO_BINARY_ENCODING)
-        && (options.getBinaryAvroSchemaPath() != null
-            && options.getBinaryAvroSchemaPath().isBlank())) {
-      throw new IllegalArgumentException(
-          "Binary Avro Schema Path cannot be empty for AVRO_BINARY_ENCODING.");
-    } else if (options
-        .getMessageFormat()
-        .equals(KafkaTemplateParameters.MessageFormatConstants.AVRO_CONFLUENT_WIRE_FORMAT)) {
-
-      if ((options.getSchemaRegistryConnectionUrl() != null
-              && options.getSchemaRegistryConnectionUrl().isBlank())
-          && (options.getConfluentAvroSchemaPath() != null
-              && options.getConfluentAvroSchemaPath().isBlank())) {
-        throw new IllegalArgumentException(
-            "Either Schema Registry Connection URL or Confluent Avro Schema Path must be provided for AVRO_CONFLUENT_WIRE_FORMAT.");
-      }
-    } else {
-      throw new IllegalArgumentException(
-          "Unsupported schemaFormat parameter value: " + options.getSchemaFormat());
-    }
-
     // Create the Pipeline
     Pipeline pipeline = Pipeline.create(options);
     String bootstrapServes;
