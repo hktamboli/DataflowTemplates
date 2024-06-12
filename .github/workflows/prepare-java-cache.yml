@@ -58,7 +58,7 @@ jobs:
         run: |
           echo "CACHE_KEY=''" >> $GITHUB_ENV
       - name: Checkout Code
-        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2 # v4.0.0
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup Java
         id: setup-java
         uses: ./.github/actions/setup-java-env
