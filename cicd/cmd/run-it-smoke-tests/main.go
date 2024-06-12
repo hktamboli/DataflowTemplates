@@ -64,6 +64,9 @@ func main() {
 		flags.ArtifactBucket(),
 		flags.StageBucket(),
 		flags.PrivateConnectivity(),
+		flags.CloudProxyHost(),
+		flags.CloudProxyPort(),
+		flags.CloudProxyPassword(),
 		flags.FailureMode(),
 		flags.RetryFailures())
 	if err != nil {

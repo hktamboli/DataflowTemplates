@@ -64,4 +64,12 @@ public interface YAMLTemplate {
       helpText =
           "A json dict of variables used when invoking the jinja preprocessor on the provided yaml pipeline.")
   String getJinjaVariables();
+
+  @TemplateParameter.Text(
+      order = 3,
+      name = "jinja_variable_flags",
+      optional = true,
+      description = "Input jinja preprocessing flag names.",
+      helpText = "A comma-separated list of flag names that should be used as jinja variables.")
+  String getJinjaVariableFlags();
 }
