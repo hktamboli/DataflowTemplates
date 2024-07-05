@@ -82,7 +82,7 @@
     <gax.version>2.45.0</gax.version>
 
     <!-- Drop pinned version once maven-dependency-plugin gets past plexus-archiver 4.8.0 -->
-    <plexus-archiver.version>4.8.0</plexus-archiver.version>
+    <plexus-archiver.version>4.10.0</plexus-archiver.version>
 
     <!-- JDBC driver / Connector versions -->
     <!-- Note: File it/src/main/java/com/google/cloud/teleport/it/common/JDBCBaseIT.java -->
