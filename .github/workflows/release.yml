@@ -90,7 +90,7 @@ jobs:
         --it-release=true \
         --it-retry-failures=2
     - name: Upload Tests Report
-      uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+      uses: actions/upload-artifact@89ef406dd8d7e03cfd12d9e0a4a378f454709029 # v4.3.5
       if: always() # always run even if previous step fails
       with:
         name: surefire-test-results
